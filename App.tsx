@@ -10,7 +10,7 @@ import { X, Loader2, Sparkles, LogIn, Lock, Check, ChevronRight, ChevronLeft, Ca
 // Simple ID generator if uuid not available
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
-// --- Initial Data: Renault Logan 2022 ---
+// --- Initial Data ---
 const INITIAL_VEHICLES: Vehicle[] = [
   {
     id: 'renault-logan-001',
@@ -18,7 +18,7 @@ const INITIAL_VEHICLES: Vehicle[] = [
     aka: 'La Coqueta',
     brand: 'Renault',
     model: 'Logan',
-    year: 2022,
+    year: 2020, // Updated to 2020
     color: 'Gris Estrella',
     driverName: 'Carlos Rodríguez',
     driverId: '1.098.765.432',
@@ -27,19 +27,41 @@ const INITIAL_VEHICLES: Vehicle[] = [
     driverPhotoUrl: 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=400&auto=format&fit=crop&q=60',
     policyNumber: 'POL-99887766',
     policyPaymentLink: 'https://www.segurosbolivar.com/pagos',
-    currentOdometer: 45000,
+    currentOdometer: 95000,
     lastOdometerUpdate: new Date().toISOString().split('T')[0],
     soatExpiry: '2025-06-15',
-    techMechanicalExpiry: '2025-06-15', // 3 years for new cars usually
+    techMechanicalExpiry: '2025-06-15',
     insuranceExpiry: '2025-02-20',
     taxExpiry: '2025-05-30',
     maintenanceRules: [
-        { type: MaintenanceType.OIL_FILTER, intervalKm: 6000, warningThresholdKm: 1000 }, // Updated to 6000
-        { type: MaintenanceType.TIMING_BELT, intervalKm: 50000, warningThresholdKm: 2000 }, // Correa
+        { type: MaintenanceType.OIL_FILTER, intervalKm: 6000, warningThresholdKm: 1000 },
+        { type: MaintenanceType.TIMING_BELT, intervalKm: 50000, warningThresholdKm: 2000 },
         { type: MaintenanceType.BRAKES, intervalKm: 30000, warningThresholdKm: 1500 },
-        // Filter out old defaults if they exist in this static definition
         ...DEFAULT_MAINTENANCE_RULES.filter(r => ![MaintenanceType.OIL_FILTER, MaintenanceType.BRAKES].includes(r.type))
     ]
+  },
+  {
+    id: 'kia-rio-002',
+    plate: 'WXZ-456',
+    aka: 'Yeimi',
+    brand: 'Kia',
+    model: 'Rio Spice',
+    year: 2016,
+    color: 'Blanco',
+    driverName: 'Brayan Stiven López',
+    driverId: '1.122.333.444',
+    driverPhone: '312 987 6543',
+    driverAddress: 'Cra 80 # 12-34, Medellín',
+    driverPhotoUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&auto=format&fit=crop&q=60',
+    policyNumber: 'AXA-554433',
+    policyPaymentLink: '',
+    currentOdometer: 145000,
+    lastOdometerUpdate: new Date().toISOString().split('T')[0],
+    soatExpiry: '2025-08-10',
+    techMechanicalExpiry: '2025-01-20',
+    insuranceExpiry: '2025-11-05',
+    taxExpiry: '2025-06-15',
+    maintenanceRules: [...DEFAULT_MAINTENANCE_RULES]
   }
 ];
 
@@ -83,8 +105,10 @@ const App: React.FC = () => {
              // Load initial demo data if empty
              setVehicles(INITIAL_VEHICLES);
              localStorage.setItem('vehicles_initialized', 'true');
-             // Optionally save initial data to DB
-             await DataService.saveVehicle(INITIAL_VEHICLES[0]);
+             // Save initial data to Storage
+             for (const vehicle of INITIAL_VEHICLES) {
+                 await DataService.saveVehicle(vehicle);
+             }
           } else {
              setVehicles(v);
           }

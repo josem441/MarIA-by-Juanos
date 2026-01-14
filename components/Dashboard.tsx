@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Vehicle, Transaction, TransactionType } from '../types';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell
 } from 'recharts';
-import { FileDown, Plus, Car, DollarSign, Wallet, ArrowRight, Truck, Cherry } from 'lucide-react';
+import { FileDown, Plus, Car, DollarSign, Wallet, ArrowRight, Truck, Cherry, Bug, Sparkles, X, Brain } from 'lucide-react';
+import { analyzeBusinessPerformance } from '../services/geminiService';
 
 interface DashboardProps {
   vehicles: Vehicle[];
@@ -17,7 +18,10 @@ interface DashboardProps {
 const COLORS = ['#37F230', '#ef4444']; // Brand Green for income, Red for expense
 
 export const Dashboard: React.FC<DashboardProps> = ({ vehicles, transactions, onSelectVehicle, onAddVehicle, onExport }) => {
-  
+  const [isAnalyzingGlobal, setIsAnalyzingGlobal] = useState(false);
+  const [globalAdvice, setGlobalAdvice] = useState<any | null>(null);
+  const [isGlobalModalOpen, setIsGlobalModalOpen] = useState(false);
+
   // Calculate Global Stats
   const totalIncome = transactions
     .filter(t => t.type === TransactionType.INCOME)
@@ -45,9 +49,36 @@ export const Dashboard: React.FC<DashboardProps> = ({ vehicles, transactions, on
     return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val);
   };
 
+  const handleGlobalAnalysis = async () => {
+      setIsAnalyzingGlobal(true);
+      try {
+          const result = await analyzeBusinessPerformance(vehicles, transactions);
+          setGlobalAdvice(result);
+          setIsGlobalModalOpen(true);
+      } catch (e) {
+          console.error(e);
+      } finally {
+          setIsAnalyzingGlobal(false);
+      }
+  };
+
   return (
-    <div className="space-y-6 animate-fade-in text-slate-800">
-      {/* Header Stats */}
+    <div className="space-y-6 animate-fade-in text-slate-800 pb-20">
+      
+      {/* Header with Global AI Action */}
+      <div className="flex justify-between items-center mb-2">
+          <h2 className="text-2xl font-black text-white font-['Nunito']">Panel Principal</h2>
+          <button 
+             onClick={handleGlobalAnalysis}
+             disabled={isAnalyzingGlobal}
+             className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-indigo-500/30 flex items-center gap-2 transition-all hover:scale-105 disabled:opacity-70"
+          >
+             {isAnalyzingGlobal ? <span className="animate-spin">⏳</span> : <Sparkles size={18} className="text-yellow-300"/>}
+             {isAnalyzingGlobal ? 'Analizando...' : 'Consultor de Negocio IA'}
+          </button>
+      </div>
+
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-100 flex items-center space-x-4">
           <div className="p-3 bg-[#37F230]/20 rounded-full text-[#05123D]">
@@ -126,9 +157,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ vehicles, transactions, on
           
           <div className="space-y-4">
             {vehicles.map(v => {
-                const isCoqueta = v.aka?.toLowerCase().includes('coqueta');
-                const Icon = isCoqueta ? Cherry : Truck;
+                // Icon Logic based on AKA
+                const aka = v.aka?.toLowerCase() || '';
+                const isCoqueta = aka.includes('coqueta');
+                const isYeimi = aka.includes('yeimi');
                 
+                const Icon = isCoqueta ? Cherry : (isYeimi ? Bug : Truck);
+                const iconColorClass = isCoqueta ? 'text-red-600' : (isYeimi ? 'text-[#37F230]' : 'text-blue-600');
+                const iconBgClass = isCoqueta ? 'bg-red-100' : (isYeimi ? 'bg-[#05123D]' : 'bg-blue-50');
+
                 return (
                   <div 
                     key={v.id} 
@@ -146,7 +183,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ vehicles, transactions, on
                             <div className="bg-[#fbbf24] text-[#05123D] font-black font-mono px-2 py-1 rounded-md border-2 border-[#05123D] shadow-sm transform -rotate-2 text-sm">
                                 {v.plate}
                             </div>
-                            <div className={`p-2 rounded-full ${isCoqueta ? 'bg-red-100 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
+                            <div className={`p-2 rounded-full ${iconBgClass} ${iconColorClass}`}>
                                 <Icon size={20} />
                             </div>
                         </div>
@@ -186,6 +223,70 @@ export const Dashboard: React.FC<DashboardProps> = ({ vehicles, transactions, on
           </div>
         </div>
       </div>
+
+      {/* GLOBAL ANALYSIS MODAL */}
+      {isGlobalModalOpen && globalAdvice && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl animate-scale-up relative flex flex-col max-h-[90vh]">
+                  <div className="bg-[#05123D] p-6 text-white rounded-t-3xl flex justify-between items-center relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-r from-indigo-900 to-[#05123D] z-0"></div>
+                      <div className="relative z-10 flex items-center gap-3">
+                          <div className="bg-[#37F230] p-2 rounded-lg text-[#05123D]">
+                             <Brain size={24} />
+                          </div>
+                          <div>
+                            <h2 className="text-2xl font-black font-['Nunito']">Diagnóstico de Negocio</h2>
+                            <p className="text-xs text-[#37F230] font-bold uppercase tracking-wider">Reporte de Inteligencia Artificial</p>
+                          </div>
+                      </div>
+                      <button onClick={() => setIsGlobalModalOpen(false)} className="relative z-10 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors">
+                          <X size={24} />
+                      </button>
+                  </div>
+                  
+                  <div className="p-6 overflow-y-auto space-y-6">
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 shadow-sm">
+                          <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wide mb-2">Resumen Ejecutivo</h4>
+                          <p className="text-slate-800 text-lg leading-relaxed font-medium">{globalAdvice.summary}</p>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
+                               <h4 className="text-xs font-bold text-emerald-600 uppercase tracking-wide mb-2">Mejor Vehículo</h4>
+                               <p className="text-emerald-900 font-bold text-lg">{globalAdvice.bestVehicle}</p>
+                          </div>
+                          <div className="bg-rose-50 p-4 rounded-xl border border-rose-100">
+                               <h4 className="text-xs font-bold text-rose-600 uppercase tracking-wide mb-2">Requiere Atención</h4>
+                               <p className="text-rose-900 font-bold text-lg">{globalAdvice.worstVehicle}</p>
+                          </div>
+                      </div>
+
+                      <div>
+                          <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wide mb-2">Análisis de Rentabilidad</h4>
+                          <p className="text-slate-700">{globalAdvice.profitabilityInsight}</p>
+                      </div>
+
+                      <div className="bg-indigo-50 p-5 rounded-xl border border-indigo-100 relative overflow-hidden">
+                          <div className="absolute -right-4 -top-4 opacity-10 text-indigo-900">
+                             <Sparkles size={100} />
+                          </div>
+                          <h4 className="text-indigo-900 font-black text-lg mb-2 relative z-10">Consejo Estratégico</h4>
+                          <p className="text-indigo-800 font-medium relative z-10">{globalAdvice.strategicAdvice}</p>
+                      </div>
+                  </div>
+
+                  <div className="p-4 border-t border-slate-100 flex justify-end">
+                      <button 
+                        onClick={() => setIsGlobalModalOpen(false)}
+                        className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-6 py-2 rounded-xl font-bold transition-colors"
+                      >
+                          Cerrar Reporte
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
     </div>
   );
 };

@@ -31,6 +31,18 @@ const adviceSchema: Schema = {
   }
 };
 
+const globalAnalysisSchema: Schema = {
+    type: Type.OBJECT,
+    properties: {
+        summary: { type: Type.STRING, description: "Un resumen ejecutivo del estado general del negocio (1 párrafo)" },
+        profitabilityInsight: { type: Type.STRING, description: "Análisis sobre la rentabilidad (ingresos vs gastos)" },
+        bestVehicle: { type: Type.STRING, description: "Nombre/Placa del vehículo con mejor rendimiento y por qué" },
+        worstVehicle: { type: Type.STRING, description: "Nombre/Placa del vehículo con más gastos o problemas y por qué" },
+        strategicAdvice: { type: Type.STRING, description: "Un consejo estratégico clave para crecer el negocio" }
+    },
+    required: ["summary", "profitabilityInsight", "bestVehicle", "worstVehicle", "strategicAdvice"]
+};
+
 export const analyzeVehicleMaintenance = async (brand: string, model: string, year: number, currentKm: number): Promise<Partial<MaintenanceRule & { description: string }>[]> => {
   try {
     const prompt = `
@@ -107,3 +119,40 @@ export const generateVehicleAdvice = async (vehicle: any, transactions: any[]): 
         return [];
     }
 };
+
+export const analyzeBusinessPerformance = async (vehicles: any[], transactions: any[]): Promise<any> => {
+    try {
+        const prompt = `
+            Actúa como un Consultor de Negocios de Transporte en Colombia. Analiza mi flota de ${vehicles.length} vehículos.
+            
+            Datos de la flota (Simplificados):
+            ${JSON.stringify(vehicles.map(v => ({ plate: v.plate, model: v.model, year: v.year, km: v.currentOdometer })))}
+
+            Datos financieros (Resumen):
+            Total Transacciones: ${transactions.length}
+            
+            Necesito que analices el rendimiento global.
+            1. ¿Cómo está la salud general del negocio?
+            2. Identifica patrones de rentabilidad.
+            3. Compara los vehículos (cuál da más problemas vs cuál rinde más, asumiendo gastos vs ingresos).
+            
+            Sé directo, profesional y estratégico.
+        `;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-preview-09-2025',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: globalAnalysisSchema
+            }
+        });
+
+        const text = response.text;
+        if (!text) return null;
+        return JSON.parse(text);
+    } catch (error) {
+        console.error("Global Analysis Failed", error);
+        return null;
+    }
+}

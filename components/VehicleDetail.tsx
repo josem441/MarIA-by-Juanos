@@ -5,7 +5,7 @@ import {
   ArrowLeft, Plus, AlertTriangle, CheckCircle, FileDown, Calendar, User, 
   Truck, Phone, Hash, Edit2, Save, ChevronDown, ChevronUp, ChevronRight, History, 
   Shield, FileText, Wrench, Thermometer, Droplet, Gauge, Activity, Zap, X, ExternalLink, MapPin, Sparkles, Brain, Lightbulb, DollarSign, TrendingUp, Cherry,
-  Landmark, Settings
+  Landmark, Settings, Bug
 } from 'lucide-react';
 
 interface VehicleDetailProps {
@@ -54,6 +54,7 @@ export const VehicleDetail: React.FC<VehicleDetailProps> = ({
 
   // Modals
   const [isDriverModalOpen, setIsDriverModalOpen] = useState(false);
+  const [isEditingDriver, setIsEditingDriver] = useState(false); // State for driver edit mode
   const [isInsuranceModalOpen, setIsInsuranceModalOpen] = useState(false);
   
   // Editing Maintenance
@@ -73,7 +74,9 @@ export const VehicleDetail: React.FC<VehicleDetailProps> = ({
 
   // Check if this is "La Coqueta" for custom icon
   const isCoqueta = vehicle.aka?.toLowerCase().includes('coqueta');
-  const MainIcon = isCoqueta ? Cherry : Truck;
+  const isYeimi = vehicle.aka?.toLowerCase().includes('yeimi');
+  
+  const MainIcon = isCoqueta ? Cherry : (isYeimi ? Bug : Truck);
 
   // --- Logic Helpers ---
 
@@ -199,6 +202,21 @@ export const VehicleDetail: React.FC<VehicleDetailProps> = ({
       }
   };
 
+  const handleSaveDriver = (e: React.FormEvent) => {
+      e.preventDefault();
+      const formData = new FormData(e.target as HTMLFormElement);
+      const updatedVehicle = {
+          ...vehicle,
+          driverName: formData.get('driverName') as string,
+          driverId: formData.get('driverId') as string,
+          driverPhone: formData.get('driverPhone') as string,
+          driverAddress: formData.get('driverAddress') as string,
+          driverPhotoUrl: formData.get('driverPhotoUrl') as string,
+      };
+      onUpdateVehicle(updatedVehicle);
+      setIsEditingDriver(false);
+  };
+
   return (
     <div className="space-y-8 animate-fade-in pb-20 relative text-slate-800">
       
@@ -268,7 +286,7 @@ export const VehicleDetail: React.FC<VehicleDetailProps> = ({
                 {/* Driver Info Button */}
                 <div className="mt-6">
                     <button 
-                        onClick={() => setIsDriverModalOpen(true)}
+                        onClick={() => { setIsDriverModalOpen(true); setIsEditingDriver(false); }}
                         className="flex items-center gap-3 bg-slate-50 hover:bg-[#37F230]/10 border border-slate-200 hover:border-[#37F230] text-slate-700 px-5 py-3 rounded-2xl transition-all group"
                     >
                         <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden group-hover:ring-2 ring-[#37F230] transition-all">
@@ -714,173 +732,7 @@ export const VehicleDetail: React.FC<VehicleDetailProps> = ({
         </div>
       )}
 
-      {activeTab === 'ai' && (
-          <div className="space-y-6 animate-fade-in">
-              <div className="bg-gradient-to-r from-[#05123D] to-indigo-950 rounded-3xl p-8 text-white relative overflow-hidden shadow-2xl border border-white/10">
-                  <div className="relative z-10 max-w-2xl">
-                      <h2 className="text-3xl font-black mb-2 flex items-center gap-3 font-['Nunito']"><Brain className="text-[#37F230]" /> Consultor de Flota IA</h2>
-                      <p className="text-slate-300 mb-6 font-medium text-lg">
-                          Analizo el modelo de tu vehículo, su desgaste actual y el historial de mantenimiento para sugerirte mejoras estratégicas.
-                      </p>
-                      <button 
-                        onClick={handleGenerateAdvice}
-                        disabled={isGeneratingAdvice}
-                        className="bg-[#37F230] text-[#05123D] px-8 py-4 rounded-xl font-black shadow-[0_0_20px_rgba(55,242,48,0.3)] hover:bg-[#32d62b] transition-all flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed text-lg hover:scale-105"
-                      >
-                          {isGeneratingAdvice ? <><span className="animate-spin">⏳</span> Analizando...</> : <><Sparkles size={20}/> Generar Diagnóstico</>}
-                      </button>
-                  </div>
-                  <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-[#37F230]/10 to-transparent"></div>
-              </div>
-
-              {aiAdvice.length > 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {aiAdvice.map((item, idx) => (
-                          <div key={idx} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-md hover:shadow-xl transition-all border-l-8"
-                               style={{ borderLeftColor: item.priority === 'Alta' ? '#ef4444' : item.priority === 'Media' ? '#f59e0b' : '#37F230' }}>
-                              <div className="flex justify-between items-start mb-3">
-                                  <h3 className="font-bold text-[#05123D] text-lg font-['Nunito']">{item.title}</h3>
-                                  <span className={`text-xs px-2 py-1 rounded font-bold uppercase
-                                      ${item.priority === 'Alta' ? 'bg-red-100 text-red-700' : item.priority === 'Media' ? 'bg-amber-100 text-amber-700' : 'bg-[#37F230]/20 text-emerald-800'}`}>
-                                      {item.priority}
-                                  </span>
-                              </div>
-                              <p className="text-slate-600 text-sm leading-relaxed font-medium">{item.content}</p>
-                              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                                  <Lightbulb size={14} className="text-[#37F230]" /> {item.category}
-                              </div>
-                          </div>
-                      ))}
-                  </div>
-              )}
-              
-              {!isGeneratingAdvice && aiAdvice.length === 0 && (
-                  <div className="text-center py-12 text-slate-400">
-                      <p className="text-lg">Presiona el botón para generar un plan de acción.</p>
-                  </div>
-              )}
-          </div>
-      )}
-
-      {activeTab === 'income' && (
-          <div className="space-y-6 animate-fade-in">
-              {/* Income Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-[#37F230] text-[#05123D] p-6 rounded-3xl shadow-xl shadow-green-500/20 relative overflow-hidden">
-                      <div className="relative z-10">
-                          <p className="text-emerald-900 font-bold uppercase tracking-wider mb-1">Total Ingresos Recaudados</p>
-                          <h3 className="text-4xl font-black font-['Nunito']">{formatCurrency(income)}</h3>
-                      </div>
-                      <div className="absolute right-0 bottom-0 p-4 opacity-20">
-                          <TrendingUp size={80} />
-                      </div>
-                  </div>
-                  <div className="bg-white p-6 rounded-3xl shadow-lg border border-slate-200">
-                      <p className="text-slate-500 font-bold uppercase tracking-wider mb-1">Promedio por Transacción</p>
-                      <h3 className="text-4xl font-black text-[#05123D] font-['Nunito']">
-                          {transactions.filter(t => t.type === TransactionType.INCOME).length > 0 
-                            ? formatCurrency(income / transactions.filter(t => t.type === TransactionType.INCOME).length)
-                            : '$0'}
-                      </h3>
-                  </div>
-              </div>
-
-              <div className="bg-white rounded-3xl shadow-lg border border-slate-200 overflow-hidden">
-                <div className="p-6 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-                    <h3 className="text-xl font-bold text-[#05123D] flex items-center gap-2 font-['Nunito']">
-                        <DollarSign className="text-[#37F230]" size={24}/> Historial de Ingresos
-                    </h3>
-                </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-white text-slate-500 border-b border-slate-200">
-                            <tr>
-                                <th className="px-6 py-4 font-bold uppercase tracking-wider text-xs">Fecha</th>
-                                <th className="px-6 py-4 font-bold uppercase tracking-wider text-xs">Categoría</th>
-                                <th className="px-6 py-4 font-bold uppercase tracking-wider text-xs">Descripción</th>
-                                <th className="px-6 py-4 font-bold uppercase tracking-wider text-xs text-right">Monto</th>
-                                <th className="px-6 py-4 w-10"></th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {sortedTransactions.filter(t => t.type === TransactionType.INCOME).map(t => (
-                                <tr key={t.id} className="hover:bg-slate-50 transition-colors">
-                                    <td className="px-6 py-4 text-[#05123D] font-bold whitespace-nowrap">{t.date}</td>
-                                    <td className="px-6 py-4 text-slate-700 font-medium">{t.category}</td>
-                                    <td className="px-6 py-4 text-slate-500 max-w-xs truncate">{t.description}</td>
-                                    <td className="px-6 py-4 text-right font-black text-[#37F230] text-base drop-shadow-sm" style={{textShadow: '0 1px 1px rgba(0,0,0,0.1)'}}>
-                                        + {formatCurrency(t.amount)}
-                                    </td>
-                                    <td className="px-6 py-4 text-center">
-                                        <button 
-                                            onClick={() => setEditingTransaction(t)}
-                                            className="text-slate-400 hover:text-[#05123D]"
-                                        >
-                                            <Edit2 size={16}/>
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                            {sortedTransactions.filter(t => t.type === TransactionType.INCOME).length === 0 && (
-                                <tr>
-                                    <td colSpan={5} className="text-center py-12 text-slate-400 font-medium">No hay ingresos registrados.</td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-             </div>
-          </div>
-      )}
-
-      {activeTab === 'history' && (
-         <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
-            <div className="p-6 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-                <h3 className="text-xl font-bold text-[#05123D] font-['Nunito']">Todas las Transacciones</h3>
-            </div>
-            <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                    <thead className="bg-white text-slate-500 border-b border-slate-200">
-                        <tr>
-                            <th className="px-6 py-4 font-bold uppercase tracking-wider text-xs">Fecha</th>
-                            <th className="px-6 py-4 font-bold uppercase tracking-wider text-xs">Tipo</th>
-                            <th className="px-6 py-4 font-bold uppercase tracking-wider text-xs">Categoría</th>
-                            <th className="px-6 py-4 font-bold uppercase tracking-wider text-xs">Descripción</th>
-                            <th className="px-6 py-4 font-bold uppercase tracking-wider text-xs text-right">Monto</th>
-                            <th className="px-6 py-4 w-10"></th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {sortedTransactions.map(t => (
-                            <tr key={t.id} className="hover:bg-slate-50 transition-colors">
-                                <td className="px-6 py-4 text-[#05123D] font-bold whitespace-nowrap">{t.date}</td>
-                                <td className="px-6 py-4">
-                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-black uppercase tracking-wider ${t.type === TransactionType.INCOME ? 'bg-[#37F230]/20 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
-                                        {t.type === TransactionType.INCOME ? 'Ingreso' : 'Gasto'}
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4 text-slate-700 font-medium">{t.category}</td>
-                                <td className="px-6 py-4 text-slate-500 max-w-xs truncate">{t.description}</td>
-                                <td className={`px-6 py-4 text-right font-black text-base ${t.type === TransactionType.INCOME ? 'text-[#37F230]' : 'text-rose-600'}`} style={{textShadow: t.type === TransactionType.INCOME ? '0 1px 1px rgba(0,0,0,0.1)' : 'none'}}>
-                                    {t.type === TransactionType.EXPENSE && '- '}{formatCurrency(t.amount)}
-                                </td>
-                                <td className="px-6 py-4 text-center">
-                                    <button 
-                                        onClick={() => setEditingTransaction(t)}
-                                        className="text-slate-400 hover:text-[#05123D]"
-                                    >
-                                        <Edit2 size={16}/>
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-         </div>
-      )}
-
-      {/* --- DRIVER MODAL --- */}
+      {/* --- DRIVER MODAL (EDITABLE) --- */}
       {isDriverModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl animate-scale-up relative overflow-hidden">
@@ -904,32 +756,73 @@ export const VehicleDetail: React.FC<VehicleDetailProps> = ({
                         )}
                     </div>
                     
-                    <h2 className="text-xl font-black text-[#05123D] mt-3 font-['Nunito']">{vehicle.driverName}</h2>
-                    <p className="text-slate-500 text-sm mb-6 font-bold uppercase tracking-wide">Conductor Autorizado</p>
-                    
-                    <div className="space-y-4 text-left">
-                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                            <div className="bg-white p-2 rounded-xl shadow-sm text-[#05123D]"><Hash size={18} /></div>
-                            <div>
-                                <p className="text-xs text-slate-400 uppercase font-bold">Cédula</p>
-                                <p className="text-slate-700 font-bold">{vehicle.driverId}</p>
+                    {!isEditingDriver && (
+                        <>
+                            <h2 className="text-xl font-black text-[#05123D] mt-3 font-['Nunito']">{vehicle.driverName}</h2>
+                            <p className="text-slate-500 text-sm mb-6 font-bold uppercase tracking-wide">Conductor Autorizado</p>
+                            
+                            <div className="space-y-4 text-left">
+                                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                                    <div className="bg-white p-2 rounded-xl shadow-sm text-[#05123D]"><Hash size={18} /></div>
+                                    <div>
+                                        <p className="text-xs text-slate-400 uppercase font-bold">Cédula</p>
+                                        <p className="text-slate-700 font-bold">{vehicle.driverId}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                                    <div className="bg-white p-2 rounded-xl shadow-sm text-[#37F230]"><Phone size={18} /></div>
+                                    <div>
+                                        <p className="text-xs text-slate-400 uppercase font-bold">Contacto</p>
+                                        <p className="text-slate-700 font-bold">{vehicle.driverPhone}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                                    <div className="bg-white p-2 rounded-xl shadow-sm text-rose-500"><MapPin size={18} /></div>
+                                    <div>
+                                        <p className="text-xs text-slate-400 uppercase font-bold">Dirección</p>
+                                        <p className="text-slate-700 font-medium text-sm">{vehicle.driverAddress || 'No registrada'}</p>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                            <div className="bg-white p-2 rounded-xl shadow-sm text-[#37F230]"><Phone size={18} /></div>
-                            <div>
-                                <p className="text-xs text-slate-400 uppercase font-bold">Contacto</p>
-                                <p className="text-slate-700 font-bold">{vehicle.driverPhone}</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                            <div className="bg-white p-2 rounded-xl shadow-sm text-rose-500"><MapPin size={18} /></div>
-                            <div>
-                                <p className="text-xs text-slate-400 uppercase font-bold">Dirección</p>
-                                <p className="text-slate-700 font-medium text-sm">{vehicle.driverAddress || 'No registrada'}</p>
-                            </div>
-                        </div>
-                    </div>
+
+                            <button 
+                                onClick={() => setIsEditingDriver(true)}
+                                className="mt-6 w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-colors flex items-center justify-center gap-2"
+                            >
+                                <Edit2 size={16}/> Editar Datos
+                            </button>
+                        </>
+                    )}
+
+                    {isEditingDriver && (
+                        <form onSubmit={handleSaveDriver} className="mt-4 text-left space-y-3">
+                             <div>
+                                <label className="text-xs font-bold text-slate-500 ml-1">Nombre Completo</label>
+                                <input name="driverName" required defaultValue={vehicle.driverName} className="w-full p-2 border border-slate-300 rounded-lg text-sm" />
+                             </div>
+                             <div>
+                                <label className="text-xs font-bold text-slate-500 ml-1">Cédula</label>
+                                <input name="driverId" required defaultValue={vehicle.driverId} className="w-full p-2 border border-slate-300 rounded-lg text-sm" />
+                             </div>
+                             <div>
+                                <label className="text-xs font-bold text-slate-500 ml-1">Teléfono</label>
+                                <input name="driverPhone" required defaultValue={vehicle.driverPhone} className="w-full p-2 border border-slate-300 rounded-lg text-sm" />
+                             </div>
+                             <div>
+                                <label className="text-xs font-bold text-slate-500 ml-1">Dirección</label>
+                                <input name="driverAddress" defaultValue={vehicle.driverAddress} className="w-full p-2 border border-slate-300 rounded-lg text-sm" />
+                             </div>
+                             <div>
+                                <label className="text-xs font-bold text-slate-500 ml-1">URL Foto (Opcional)</label>
+                                <input name="driverPhotoUrl" defaultValue={vehicle.driverPhotoUrl} placeholder="https://..." className="w-full p-2 border border-slate-300 rounded-lg text-sm" />
+                             </div>
+
+                             <div className="flex gap-2 pt-2">
+                                 <button type="button" onClick={() => setIsEditingDriver(false)} className="flex-1 py-2 bg-slate-100 rounded-lg text-slate-600 font-bold text-sm">Cancelar</button>
+                                 <button type="submit" className="flex-1 py-2 bg-[#37F230] text-[#05123D] rounded-lg font-bold text-sm">Guardar</button>
+                             </div>
+                        </form>
+                    )}
                 </div>
             </div>
         </div>
