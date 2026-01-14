@@ -4,8 +4,8 @@ import { Dashboard } from './components/Dashboard';
 import { VehicleDetail } from './components/VehicleDetail';
 import { exportGlobalSummary, exportVehicleHistory } from './services/excelService';
 import { analyzeVehicleMaintenance } from './services/geminiService';
-import { DataService } from './services/dataService';
-import { X, Loader2, Sparkles, LogIn, Lock, Check, ChevronRight, ChevronLeft, Car, User, Calendar, Wrench, Key, LogOut } from 'lucide-react';
+import { DataService, isCloudEnabled } from './services/dataService';
+import { X, Loader2, Sparkles, LogIn, Lock, Check, ChevronRight, ChevronLeft, Car, User, Calendar, Wrench, Key, LogOut, CloudOff, Cloud } from 'lucide-react';
 
 // Simple ID generator if uuid not available
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -75,6 +75,7 @@ const App: React.FC = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
+  const [cloudStatus, setCloudStatus] = useState(false);
 
   // --- UI State ---
   const [currentView, setCurrentView] = useState<'dashboard' | 'detail'>('dashboard');
@@ -97,6 +98,7 @@ const App: React.FC = () => {
   // --- Data Loading ---
   const loadData = async () => {
       setIsLoadingData(true);
+      setCloudStatus(isCloudEnabled());
       try {
           const v = await DataService.getVehicles();
           const t = await DataService.getTransactions();
@@ -334,6 +336,12 @@ const App: React.FC = () => {
                 </span>
             </div>
             <div className="flex items-center space-x-4">
+                {/* Cloud Status Indicator */}
+                <div className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 border ${cloudStatus ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50' : 'bg-amber-500/20 text-amber-400 border-amber-500/50'}`}>
+                    {cloudStatus ? <Cloud size={14}/> : <CloudOff size={14}/>}
+                    <span className="hidden sm:inline">{cloudStatus ? 'Nube Activa' : 'Modo Local'}</span>
+                </div>
+
                 <div className="text-xs text-right hidden sm:block">
                     <p className="font-bold text-white font-['Nunito']">Admin</p>
                     <p className="text-[#37F230]">Sesión Activa</p>

@@ -1,68 +1,105 @@
 import { Vehicle, Transaction } from '../types';
-// import { supabase } from './supabaseClient'; // Disabled for local mode
+import { db } from './firebaseClient';
+import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
 
 // --- CONFIGURACIÓN DE ALMACENAMIENTO ---
-// Establecido en false para usar LocalStorage (Modo Offline/Local)
-const USE_SUPABASE = false;
-
-// --- LOCAL STORAGE HELPERS ---
-const getLocalVehicles = (): Vehicle[] => {
-    try {
-        const saved = localStorage.getItem('vehicles');
-        return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-        console.error("Error reading vehicles from local storage", e);
-        return [];
-    }
+const COLLECTION_VEHICLES = 'vehicles';
+const COLLECTION_TRANSACTIONS = 'transactions';
+const LOCAL_KEYS = {
+    VEHICLES: 'vehicles_data_local',
+    TRANSACTIONS: 'transactions_data_local'
 };
 
-const getLocalTransactions = (): Transaction[] => {
-    try {
-        const saved = localStorage.getItem('transactions');
-        return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-        console.error("Error reading transactions from local storage", e);
-        return [];
-    }
+// Helper para LocalStorage (Modo Fallback/Offline)
+const getLocal = <T>(key: string): T[] => {
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : [];
 };
-
-// --- DATA SERVICE API ---
+const saveLocal = (key: string, data: any[]) => {
+    localStorage.setItem(key, JSON.stringify(data));
+};
 
 export const DataService = {
     
     // FETCH VEHICLES
     getVehicles: async (): Promise<Vehicle[]> => {
-        // En modo local, retornamos directamente del localStorage
-        return getLocalVehicles();
+        // 1. Si no hay DB configurada, usar LocalStorage
+        if (!db) {
+            return getLocal<Vehicle>(LOCAL_KEYS.VEHICLES);
+        }
+
+        // 2. Intentar nube
+        try {
+            const querySnapshot = await getDocs(collection(db, COLLECTION_VEHICLES));
+            const vehicles: Vehicle[] = [];
+            querySnapshot.forEach((doc) => {
+                vehicles.push(doc.data() as Vehicle);
+            });
+            return vehicles;
+        } catch (e) {
+            console.error("Error conectando a Google Cloud (Vehículos):", e);
+            // Fallback a local si la red falla
+            return getLocal<Vehicle>(LOCAL_KEYS.VEHICLES);
+        }
     },
 
-    // SAVE VEHICLE (Create or Update)
+    // SAVE VEHICLE
     saveVehicle: async (vehicle: Vehicle): Promise<void> => {
-        const current = getLocalVehicles();
-        const index = current.findIndex(v => v.id === vehicle.id);
-        if (index >= 0) {
-            current[index] = vehicle;
-        } else {
-            current.push(vehicle);
+        // Siempre guardar en local para redundancia o modo offline
+        const localVehicles = getLocal<Vehicle>(LOCAL_KEYS.VEHICLES);
+        const index = localVehicles.findIndex(v => v.id === vehicle.id);
+        if (index >= 0) localVehicles[index] = vehicle;
+        else localVehicles.push(vehicle);
+        saveLocal(LOCAL_KEYS.VEHICLES, localVehicles);
+
+        if (!db) return; // Si no hay nube, terminamos aquí
+
+        try {
+            await setDoc(doc(db, COLLECTION_VEHICLES, vehicle.id), vehicle);
+        } catch (e) {
+            console.error("Error guardando vehículo en Google Cloud:", e);
+            throw e; // Relanzar para que la UI sepa que falló la nube
         }
-        localStorage.setItem('vehicles', JSON.stringify(current));
     },
 
     // FETCH TRANSACTIONS
     getTransactions: async (): Promise<Transaction[]> => {
-        // En modo local, retornamos directamente del localStorage
-        return getLocalTransactions();
+        if (!db) {
+            return getLocal<Transaction>(LOCAL_KEYS.TRANSACTIONS);
+        }
+
+        try {
+            const querySnapshot = await getDocs(collection(db, COLLECTION_TRANSACTIONS));
+            const transactions: Transaction[] = [];
+            querySnapshot.forEach((doc) => {
+                transactions.push(doc.data() as Transaction);
+            });
+            return transactions;
+        } catch (e) {
+            console.error("Error conectando a Google Cloud (Transacciones):", e);
+            return getLocal<Transaction>(LOCAL_KEYS.TRANSACTIONS);
+        }
     },
 
     // SAVE TRANSACTION
     saveTransaction: async (transaction: Transaction): Promise<void> => {
-        const current = getLocalTransactions();
-        const index = current.findIndex(t => t.id === transaction.id);
-        if (index >= 0) {
-            current[index] = transaction;
-        } else {
-            current.push(transaction);
+        // Guardado local
+        const localTrans = getLocal<Transaction>(LOCAL_KEYS.TRANSACTIONS);
+        const index = localTrans.findIndex(t => t.id === transaction.id);
+        if (index >= 0) localTrans[index] = transaction;
+        else localTrans.push(transaction);
+        saveLocal(LOCAL_KEYS.TRANSACTIONS, localTrans);
+
+        if (!db) return;
+
+        try {
+            await setDoc(doc(db, COLLECTION_TRANSACTIONS, transaction.id), transaction);
+        } catch (e) {
+            console.error("Error guardando transacción en Google Cloud:", e);
+            throw e;
         }
-        localStorage.setItem('transactions', JSON.stringify(current));
     }
 };
+
+// Método para verificar estado
+export const isCloudEnabled = () => !!db;
