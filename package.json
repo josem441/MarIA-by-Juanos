@@ -15,7 +15,7 @@
     "recharts": "^2.12.2",
     "date-fns": "^3.3.1",
     "xlsx": "^0.18.5",
-    "@google/genai": "^0.1.2",
+    "@google/genai": "latest",
     "@supabase/supabase-js": "^2.39.7"
   },
   "devDependencies": {
