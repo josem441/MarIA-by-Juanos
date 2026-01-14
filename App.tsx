@@ -219,6 +219,10 @@ const App: React.FC = () => {
   const handleAddTransaction = async (formData: any) => {
     if (!selectedVehicle) return;
 
+    // Logic for Odometer: Use form value if present, otherwise fallback to current vehicle odometer
+    const formOdometer = formData.odometer ? parseInt(formData.odometer) : null;
+    const finalOdometer = formOdometer && !isNaN(formOdometer) ? formOdometer : selectedVehicle.currentOdometer;
+
     const newTx: Transaction = {
       id: generateId(),
       vehicleId: selectedVehicle.id,
@@ -227,7 +231,7 @@ const App: React.FC = () => {
       amount: parseFloat(formData.amount),
       category: formData.category,
       description: formData.description,
-      odometerSnapshot: selectedVehicle.currentOdometer
+      odometerSnapshot: finalOdometer
     };
 
     await DataService.saveTransaction(newTx);
@@ -585,6 +589,20 @@ const App: React.FC = () => {
                         <div>
                             <label className="label">Fecha</label>
                             <input name="date" type="date" required defaultValue={new Date().toISOString().split('T')[0]} className="input-field" />
+                        </div>
+                        
+                        <div>
+                            <label className="label">Kilometraje al momento (Opcional)</label>
+                            <div className="relative">
+                                <input 
+                                    name="odometer" 
+                                    type="number" 
+                                    defaultValue={selectedVehicle?.currentOdometer} 
+                                    placeholder={selectedVehicle?.currentOdometer.toString()}
+                                    className="input-field" 
+                                />
+                                <p className="text-xs text-slate-400 mt-1">Si se deja vacío, se usará el actual: {selectedVehicle?.currentOdometer} km</p>
+                            </div>
                         </div>
 
                         <div>
