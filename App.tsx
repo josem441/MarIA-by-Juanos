@@ -293,7 +293,9 @@ const App: React.FC = () => {
                 <div className="bg-[#37F230] w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-[0_0_20px_rgba(55,242,48,0.3)]">
                     <Sparkles className="text-[#05123D]" size={36} />
                 </div>
-                <h1 className="text-3xl font-black text-white font-['Nunito']">Acceso Seguro</h1>
+                <h1 className="text-3xl font-black text-white font-['Nunito']">
+                    MarIA<span className="text-[#37F230]"> by Juanos</span>
+                </h1>
                 <p className="text-slate-300 mt-2">Gestor de Flota de Transportes</p>
             </div>
             <form onSubmit={handleLogin} className="space-y-5">
