@@ -4,14 +4,15 @@ import { generateVehicleAdvice } from '../services/geminiService';
 import { 
   ArrowLeft, Plus, AlertTriangle, CheckCircle, FileDown, Calendar, User, 
   Truck, Phone, Hash, Edit2, Save, ChevronDown, ChevronUp, ChevronRight, History, 
-  Shield, FileText, Wrench, Thermometer, Droplet, Gauge, Activity, Zap, X, ExternalLink, MapPin, Sparkles, Brain, Lightbulb, DollarSign, TrendingUp, Cherry
+  Shield, FileText, Wrench, Thermometer, Droplet, Gauge, Activity, Zap, X, ExternalLink, MapPin, Sparkles, Brain, Lightbulb, DollarSign, TrendingUp, Cherry,
+  Landmark, Settings
 } from 'lucide-react';
 
 interface VehicleDetailProps {
   vehicle: Vehicle;
   transactions: Transaction[];
   onBack: () => void;
-  onAddTransaction: (type: TransactionType) => void;
+  onAddTransaction: (type: TransactionType, category?: string) => void;
   onUpdateOdometer: (newOdometer: number) => void;
   onUpdateVehicle: (updatedVehicle: Vehicle) => void;
   onEditTransaction: (tx: Transaction) => void;
@@ -21,11 +22,14 @@ interface VehicleDetailProps {
 const getIconForMaintenance = (type: string | MaintenanceType) => {
     switch (type) {
         case MaintenanceType.OIL_FILTER: return <Droplet size={18} />;
+        case MaintenanceType.TRANSMISSION_OIL: return <Droplet size={18} />;
         case MaintenanceType.BRAKES: return <Activity size={18} />;
         case MaintenanceType.TIRES: return <Gauge size={18} />; 
         case MaintenanceType.SPARK_PLUGS: return <Zap size={18} />;
         case MaintenanceType.AC_RECHARGE: return <Thermometer size={18} />;
         case MaintenanceType.OTHER: return <DollarSign size={18} />;
+        case MaintenanceType.TAXES: return <Landmark size={18} />;
+        case MaintenanceType.TRANSMISSION_OIL: return <Settings size={18} />;
         default: return <Wrench size={18} />;
     }
 };
@@ -40,7 +44,8 @@ export const VehicleDetail: React.FC<VehicleDetailProps> = ({
   const [docDates, setDocDates] = useState({
       soat: vehicle.soatExpiry,
       tech: vehicle.techMechanicalExpiry,
-      insurance: vehicle.insuranceExpiry
+      insurance: vehicle.insuranceExpiry,
+      taxes: vehicle.taxExpiry
   });
   
   // AI State
@@ -161,7 +166,8 @@ export const VehicleDetail: React.FC<VehicleDetailProps> = ({
           ...vehicle,
           soatExpiry: docDates.soat,
           techMechanicalExpiry: docDates.tech,
-          insuranceExpiry: docDates.insurance
+          insuranceExpiry: docDates.insurance,
+          taxExpiry: docDates.taxes
       });
       setIsEditingDocs(false);
   };
@@ -354,11 +360,12 @@ export const VehicleDetail: React.FC<VehicleDetailProps> = ({
                     </button>
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {[
                         { type: MaintenanceType.SOAT, label: 'SOAT', key: 'soat', icon: <Shield size={24}/> }, 
                         { type: MaintenanceType.TECH_MECHANICAL, label: 'Tecno Mecánica', key: 'tech', icon: <Wrench size={24}/> },
-                        { type: MaintenanceType.INSURANCE_POLICY, label: 'Póliza Seguros', key: 'insurance', icon: <FileText size={24}/> }
+                        { type: MaintenanceType.INSURANCE_POLICY, label: 'Póliza Seguros', key: 'insurance', icon: <FileText size={24}/> },
+                        { type: MaintenanceType.TAXES, label: 'Impuestos', key: 'taxes', icon: <Landmark size={24}/> }
                     ].map(item => {
                         // Docs Status Logic: Expired (<0), Warning (<30), OK (>=30)
                         const dateValue = docDates[item.key as keyof typeof docDates];
@@ -433,7 +440,10 @@ export const VehicleDetail: React.FC<VehicleDetailProps> = ({
                 <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
                     {/* STANDARD RULES */}
                     {vehicle.maintenanceRules.filter(r => 
-                        ![MaintenanceType.SOAT, MaintenanceType.TECH_MECHANICAL, MaintenanceType.INSURANCE_POLICY].includes(r.type)
+                        ![MaintenanceType.SOAT, MaintenanceType.TECH_MECHANICAL, MaintenanceType.INSURANCE_POLICY, MaintenanceType.TAXES].includes(r.type) &&
+                        // Remove requested items from UI even if they exist in DB
+                        r.type !== MaintenanceType.SUSPENSION &&
+                        r.type !== MaintenanceType.SPARK_PLUGS
                     ).map((rule, idx) => {
                          const status = getMaintenanceStatus(rule);
                          const isExpanded = expandedRule === rule.type;
@@ -494,7 +504,7 @@ export const VehicleDetail: React.FC<VehicleDetailProps> = ({
                                             <button 
                                                 onClick={(e) => { e.stopPropagation(); setEditingRule(rule.type); }}
                                                 className="p-2 hover:bg-[#37F230]/20 rounded-full text-slate-400 hover:text-[#05123D] transition-colors"
-                                                title="Corregir última vez"
+                                                title="Corregir fecha manual (si no hay transacción)"
                                             >
                                                 <Edit2 size={16}/>
                                             </button>
@@ -540,12 +550,20 @@ export const VehicleDetail: React.FC<VehicleDetailProps> = ({
                                 {/* Expanded Content */}
                                 {isExpanded && (
                                     <div className="bg-slate-50 p-4 sm:p-6 border-t border-slate-100 animate-slide-down">
-                                        <div className="flex items-center justify-between mb-4">
+                                        <div className="flex flex-col sm:flex-row items-center justify-between mb-4 gap-4">
                                             <h5 className="font-bold text-slate-700 text-sm flex items-center gap-2 uppercase tracking-wide">
                                                 <History size={16}/> Historial Financiero
                                             </h5>
-                                            <div className="bg-[#05123D] text-white px-4 py-2 rounded-xl shadow-md text-sm font-bold">
-                                                Inversión Total: <span className="text-[#37F230] ml-1">{formatCurrency(status.totalSpent)}</span>
+                                            <div className="flex items-center gap-3">
+                                                 <div className="bg-[#05123D] text-white px-4 py-2 rounded-xl shadow-md text-sm font-bold">
+                                                    Inversión Total: <span className="text-[#37F230] ml-1">{formatCurrency(status.totalSpent)}</span>
+                                                </div>
+                                                <button 
+                                                    onClick={() => onAddTransaction(TransactionType.EXPENSE, rule.type)}
+                                                    className="bg-[#37F230] text-[#05123D] px-4 py-2 rounded-xl shadow-md text-sm font-bold hover:bg-[#32d62b] flex items-center gap-2 border border-green-400"
+                                                >
+                                                    <Plus size={16} strokeWidth={3}/> Registrar Mantenimiento
+                                                </button>
                                             </div>
                                         </div>
 
@@ -587,10 +605,10 @@ export const VehicleDetail: React.FC<VehicleDetailProps> = ({
                                             <div className="text-center py-8 bg-white rounded-xl border border-dashed border-slate-300">
                                                 <p className="text-slate-400 text-sm font-medium">No se han registrado transacciones financieras.</p>
                                                 <button 
-                                                    onClick={() => onAddTransaction(TransactionType.EXPENSE)}
+                                                    onClick={() => onAddTransaction(TransactionType.EXPENSE, rule.type)}
                                                     className="mt-3 text-[#05123D] bg-[#37F230] px-4 py-2 rounded-lg text-sm font-bold hover:bg-[#32d62b]"
                                                 >
-                                                    Registrar gasto
+                                                    Registrar gasto ahora
                                                 </button>
                                             </div>
                                         )}
@@ -644,6 +662,12 @@ export const VehicleDetail: React.FC<VehicleDetailProps> = ({
                                                 <h5 className="font-bold text-slate-700 text-sm flex items-center gap-2 uppercase tracking-wide">
                                                     <History size={16}/> Historial de Varios
                                                 </h5>
+                                                <button 
+                                                    onClick={() => onAddTransaction(TransactionType.EXPENSE, MaintenanceType.OTHER)}
+                                                    className="bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg shadow-sm text-xs font-bold hover:bg-slate-300 flex items-center gap-2"
+                                                >
+                                                    <Plus size={14} /> Agregar Otro
+                                                </button>
                                             </div>
                                             {othersTransactions.length > 0 ? (
                                                 <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">

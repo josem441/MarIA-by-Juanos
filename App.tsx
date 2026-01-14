@@ -32,10 +32,12 @@ const INITIAL_VEHICLES: Vehicle[] = [
     soatExpiry: '2025-06-15',
     techMechanicalExpiry: '2025-06-15', // 3 years for new cars usually
     insuranceExpiry: '2025-02-20',
+    taxExpiry: '2025-05-30',
     maintenanceRules: [
-        { type: MaintenanceType.OIL_FILTER, intervalKm: 10000, warningThresholdKm: 1000 }, // Renault suggests 10k often
+        { type: MaintenanceType.OIL_FILTER, intervalKm: 6000, warningThresholdKm: 1000 }, // Updated to 6000
         { type: MaintenanceType.TIMING_BELT, intervalKm: 50000, warningThresholdKm: 2000 }, // Correa
         { type: MaintenanceType.BRAKES, intervalKm: 30000, warningThresholdKm: 1500 },
+        // Filter out old defaults if they exist in this static definition
         ...DEFAULT_MAINTENANCE_RULES.filter(r => ![MaintenanceType.OIL_FILTER, MaintenanceType.BRAKES].includes(r.type))
     ]
   }
@@ -60,7 +62,8 @@ const App: React.FC = () => {
   const [isAddVehicleModalOpen, setIsAddVehicleModalOpen] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [transactionType, setTransactionType] = useState<TransactionType>(TransactionType.INCOME);
-  
+  const [transactionDefaultCategory, setTransactionDefaultCategory] = useState<string>(''); // For pre-filling modal
+
   // Wizard State
   const [wizardStep, setWizardStep] = useState(1);
   const [newVehicleData, setNewVehicleData] = useState<Partial<Vehicle>>({
@@ -204,6 +207,7 @@ const App: React.FC = () => {
         soatExpiry: data.soatExpiry,
         techMechanicalExpiry: data.techMechanicalExpiry,
         insuranceExpiry: data.insuranceExpiry,
+        taxExpiry: data.taxExpiry,
         maintenanceRules: data.maintenanceRules
       };
 
@@ -345,7 +349,11 @@ const App: React.FC = () => {
                 vehicle={selectedVehicle}
                 transactions={transactions.filter(t => t.vehicleId === selectedVehicle.id)}
                 onBack={() => { setCurrentView('dashboard'); setSelectedVehicle(null); }}
-                onAddTransaction={(type) => { setTransactionType(type); setIsTransactionModalOpen(true); }}
+                onAddTransaction={(type, category) => { 
+                    setTransactionType(type); 
+                    setTransactionDefaultCategory(category || '');
+                    setIsTransactionModalOpen(true); 
+                }}
                 onUpdateOdometer={updateVehicleOdometer}
                 onUpdateVehicle={handleUpdateVehicle}
                 onEditTransaction={handleEditTransaction}
@@ -449,17 +457,25 @@ const App: React.FC = () => {
                                 <h3 className="text-lg font-bold font-['Nunito']">Documentación y Vencimientos</h3>
                             </div>
                             <div className="grid grid-cols-1 gap-4">
-                                <div>
-                                    <label className="label">Vencimiento SOAT</label>
-                                    <input name="soatExpiry" type="date" required defaultValue={newVehicleData.soatExpiry} className="input-field" />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="label">Vencimiento SOAT</label>
+                                        <input name="soatExpiry" type="date" required defaultValue={newVehicleData.soatExpiry} className="input-field" />
+                                    </div>
+                                    <div>
+                                        <label className="label">Vencimiento Tecno Mecánica</label>
+                                        <input name="techMechanicalExpiry" type="date" required defaultValue={newVehicleData.techMechanicalExpiry} className="input-field" />
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="label">Vencimiento Tecno Mecánica</label>
-                                    <input name="techMechanicalExpiry" type="date" required defaultValue={newVehicleData.techMechanicalExpiry} className="input-field" />
-                                </div>
-                                <div>
-                                    <label className="label">Vencimiento Póliza Todo Riesgo</label>
-                                    <input name="insuranceExpiry" type="date" required defaultValue={newVehicleData.insuranceExpiry} className="input-field" />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="label">Vencimiento Póliza Todo Riesgo</label>
+                                        <input name="insuranceExpiry" type="date" required defaultValue={newVehicleData.insuranceExpiry} className="input-field" />
+                                    </div>
+                                    <div>
+                                        <label className="label">Vencimiento Impuestos</label>
+                                        <input name="taxExpiry" type="date" required defaultValue={newVehicleData.taxExpiry} className="input-field" />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -580,7 +596,7 @@ const App: React.FC = () => {
                                     <option value="Otro">Otro</option>
                                 </select>
                             ) : (
-                                <select name="category" className="input-field">
+                                <select name="category" className="input-field" defaultValue={transactionDefaultCategory}>
                                     {Object.values(MaintenanceType).map(t => (
                                         <option key={t} value={t}>{t}</option>
                                     ))}

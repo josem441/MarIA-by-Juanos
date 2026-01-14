@@ -12,13 +12,18 @@ export enum MaintenanceType {
   AIR_FILTER = 'Filtro de Aire',
   AC_RECHARGE = 'Recarga Aire Acondicionado',
   TIMING_BELT = 'Correa/Cadenilla',
-  SUSPENSION = 'Suspensión',
+  SUSPENSION = 'Suspensión', // Deprecated but kept for type safety
   SHOCK_ABSORBERS = 'Amortiguadores',
-  SPARK_PLUGS = 'Cables y Bujías',
+  SPARK_PLUGS = 'Cables y Bujías', // Deprecated but kept for type safety
   ENGINE_TUNING = 'Afinación Motor',
+  TRANSMISSION_OIL = 'Aceite Caja Cambios', // New
+  
+  // Docs
   SOAT = 'SOAT',
   TECH_MECHANICAL = 'Técnico Mecánica',
   INSURANCE_POLICY = 'Póliza Todo Riesgo',
+  TAXES = 'Impuestos', // New
+  
   OTHER = 'Otro'
 }
 
@@ -73,20 +78,20 @@ export interface Vehicle {
   soatExpiry: string;
   techMechanicalExpiry: string;
   insuranceExpiry: string;
+  taxExpiry: string; // New field for Taxes
   
   // Custom Maintenance Config (AI suggested or Manual)
   maintenanceRules: MaintenanceRule[];
 }
 
 export const DEFAULT_MAINTENANCE_RULES: MaintenanceRule[] = [
-  { type: MaintenanceType.OIL_FILTER, intervalKm: 5500, warningThresholdKm: 500 },
+  { type: MaintenanceType.OIL_FILTER, intervalKm: 6000, warningThresholdKm: 500 },
   { type: MaintenanceType.BRAKES, intervalKm: 25000, warningThresholdKm: 1000 },
   { type: MaintenanceType.TIRES, intervalMonths: 6, warningThresholdDays: 15 }, // "2 llantas en un año" ~ every 6 months for rotation/change logic
   { type: MaintenanceType.ALIGNMENT, intervalMonths: 6, warningThresholdDays: 15 },
   { type: MaintenanceType.AIR_FILTER, intervalMonths: 6, warningThresholdDays: 15 },
   { type: MaintenanceType.AC_RECHARGE, intervalMonths: 36, warningThresholdDays: 30 }, // 3 years
-  { type: MaintenanceType.SUSPENSION, intervalMonths: 6, warningThresholdDays: 15 },
   { type: MaintenanceType.SHOCK_ABSORBERS, intervalMonths: 24, warningThresholdDays: 30 },
-  { type: MaintenanceType.SPARK_PLUGS, intervalKm: 50000, warningThresholdKm: 2000 },
   { type: MaintenanceType.ENGINE_TUNING, intervalKm: 50000, warningThresholdKm: 2000 },
+  { type: MaintenanceType.TRANSMISSION_OIL, intervalKm: 100000, warningThresholdKm: 5000 }, // New rule
 ];
