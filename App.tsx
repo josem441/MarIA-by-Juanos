@@ -4,8 +4,8 @@ import { Dashboard } from './components/Dashboard';
 import { VehicleDetail } from './components/VehicleDetail';
 import { exportGlobalSummary, exportVehicleHistory } from './services/excelService';
 import { analyzeVehicleMaintenance } from './services/geminiService';
-import { DataService, isCloudEnabled } from './services/dataService';
-import { X, Loader2, Sparkles, LogIn, Lock, Check, ChevronRight, ChevronLeft, Car, User, Calendar, Wrench, Key, LogOut, CloudOff, Cloud } from 'lucide-react';
+import { DataService } from './services/dataService';
+import { X, Loader2, Sparkles, LogIn, Lock, Check, ChevronRight, ChevronLeft, Car, User, Calendar, Wrench, Key, LogOut } from 'lucide-react';
 
 // Simple ID generator if uuid not available
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -75,7 +75,6 @@ const App: React.FC = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
-  const [cloudStatus, setCloudStatus] = useState(false);
 
   // --- UI State ---
   const [currentView, setCurrentView] = useState<'dashboard' | 'detail'>('dashboard');
@@ -86,7 +85,6 @@ const App: React.FC = () => {
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [transactionType, setTransactionType] = useState<TransactionType>(TransactionType.INCOME);
   const [transactionDefaultCategory, setTransactionDefaultCategory] = useState<string>(''); // For pre-filling modal
-  const [isSaving, setIsSaving] = useState(false); // New state for loading buttons
 
   // Wizard State
   const [wizardStep, setWizardStep] = useState(1);
@@ -99,29 +97,15 @@ const App: React.FC = () => {
   // --- Data Loading ---
   const loadData = async () => {
       setIsLoadingData(true);
-      const cloudActive = isCloudEnabled();
-      setCloudStatus(cloudActive);
-
       try {
-          let v = await DataService.getVehicles();
+          const v = await DataService.getVehicles();
           const t = await DataService.getTransactions();
           
-          if (cloudActive && v.length === 0) {
-             console.log("☁️ Nube conectada pero vacía. Subiendo datos iniciales...");
-             const toast = document.createElement('div');
-             toast.className = "fixed bottom-4 right-4 bg-emerald-600 text-white px-6 py-4 rounded-xl shadow-2xl z-50 animate-bounce font-bold flex items-center gap-2";
-             toast.innerHTML = "🚀 Inicializando base de datos en la nube...";
-             document.body.appendChild(toast);
-
-             for (const vehicle of INITIAL_VEHICLES) {
-                 await DataService.saveVehicle(vehicle);
-             }
-             
-             v = INITIAL_VEHICLES;
-             setTimeout(() => toast.remove(), 4000);
-          } else if (v.length === 0 && !localStorage.getItem('vehicles_initialized')) {
+          if (v.length === 0 && !localStorage.getItem('vehicles_initialized')) {
+             // Load initial demo data if empty
              setVehicles(INITIAL_VEHICLES);
              localStorage.setItem('vehicles_initialized', 'true');
+             // Save initial data to Storage
              for (const vehicle of INITIAL_VEHICLES) {
                  await DataService.saveVehicle(vehicle);
              }
@@ -231,97 +215,72 @@ const App: React.FC = () => {
   };
 
   const finalizeAddVehicle = async (data: any) => {
-      setIsSaving(true);
-      try {
-          const newVehicle: Vehicle = {
-            id: generateId(),
-            plate: (data.plate || '').toUpperCase(),
-            aka: data.aka,
-            brand: data.brand,
-            model: data.model,
-            year: parseInt(data.year),
-            color: data.color,
-            driverName: data.driverName,
-            driverId: data.driverId,
-            driverPhone: data.driverPhone,
-            currentOdometer: parseInt(data.currentOdometer),
-            lastOdometerUpdate: new Date().toISOString().split('T')[0],
-            soatExpiry: data.soatExpiry,
-            techMechanicalExpiry: data.techMechanicalExpiry,
-            insuranceExpiry: data.insuranceExpiry,
-            taxExpiry: data.taxExpiry,
-            maintenanceRules: data.maintenanceRules
-          };
+      const newVehicle: Vehicle = {
+        id: generateId(),
+        plate: (data.plate || '').toUpperCase(),
+        aka: data.aka,
+        brand: data.brand,
+        model: data.model,
+        year: parseInt(data.year),
+        color: data.color,
+        driverName: data.driverName,
+        driverId: data.driverId,
+        driverPhone: data.driverPhone,
+        currentOdometer: parseInt(data.currentOdometer),
+        lastOdometerUpdate: new Date().toISOString().split('T')[0],
+        soatExpiry: data.soatExpiry,
+        techMechanicalExpiry: data.techMechanicalExpiry,
+        insuranceExpiry: data.insuranceExpiry,
+        taxExpiry: data.taxExpiry,
+        maintenanceRules: data.maintenanceRules
+      };
 
-          await DataService.saveVehicle(newVehicle);
-          await loadData(); // Refresh list
-          setIsAddVehicleModalOpen(false);
-      } catch (error: any) {
-          alert("Error guardando vehículo en la nube: " + error.message + "\n\nVerifica tu conexión o permisos.");
-      } finally {
-          setIsSaving(false);
-      }
+      await DataService.saveVehicle(newVehicle);
+      await loadData(); // Refresh list
+      setIsAddVehicleModalOpen(false);
   };
 
   const handleAddTransaction = async (formData: any) => {
     if (!selectedVehicle) return;
-    setIsSaving(true);
 
-    try {
-        const formOdometer = formData.odometer ? parseInt(formData.odometer) : null;
-        const finalOdometer = formOdometer && !isNaN(formOdometer) ? formOdometer : selectedVehicle.currentOdometer;
+    // Logic for Odometer: Use form value if present, otherwise fallback to current vehicle odometer
+    const formOdometer = formData.odometer ? parseInt(formData.odometer) : null;
+    const finalOdometer = formOdometer && !isNaN(formOdometer) ? formOdometer : selectedVehicle.currentOdometer;
 
-        const newTx: Transaction = {
-          id: generateId(),
-          vehicleId: selectedVehicle.id,
-          date: formData.date,
-          type: transactionType,
-          amount: parseFloat(formData.amount),
-          category: formData.category,
-          description: formData.description,
-          odometerSnapshot: finalOdometer
-        };
+    const newTx: Transaction = {
+      id: generateId(),
+      vehicleId: selectedVehicle.id,
+      date: formData.date,
+      type: transactionType,
+      amount: parseFloat(formData.amount),
+      category: formData.category,
+      description: formData.description,
+      odometerSnapshot: finalOdometer
+    };
 
-        await DataService.saveTransaction(newTx);
-        await loadData(); // Refresh list
-        setIsTransactionModalOpen(false);
-    } catch (error: any) {
-        alert("Error guardando transacción: " + error.message);
-    } finally {
-        setIsSaving(false);
-    }
+    await DataService.saveTransaction(newTx);
+    await loadData(); // Refresh list
+    setIsTransactionModalOpen(false);
   };
   
   const handleEditTransaction = async (updatedTx: Transaction) => {
-      try {
-          await DataService.saveTransaction(updatedTx);
-          await loadData();
-      } catch (error: any) {
-          alert("Error actualizando transacción: " + error.message);
-      }
+      await DataService.saveTransaction(updatedTx);
+      await loadData();
   };
 
   const updateVehicleOdometer = async (newVal: number) => {
     if (selectedVehicle) {
-        try {
-            const updated = { ...selectedVehicle, currentOdometer: newVal, lastOdometerUpdate: new Date().toISOString().split('T')[0] };
-            await DataService.saveVehicle(updated);
-            setSelectedVehicle(updated); // Optimistic update
-            await loadData();
-        } catch (error: any) {
-            alert("Error actualizando kilometraje: " + error.message);
-        }
+        const updated = { ...selectedVehicle, currentOdometer: newVal, lastOdometerUpdate: new Date().toISOString().split('T')[0] };
+        await DataService.saveVehicle(updated);
+        setSelectedVehicle(updated); // Optimistic update
+        await loadData();
     }
   };
 
   const handleUpdateVehicle = async (updatedVehicle: Vehicle) => {
-      try {
-          await DataService.saveVehicle(updatedVehicle);
-          setSelectedVehicle(updatedVehicle); 
-          await loadData();
-      } catch (error: any) {
-          alert("Error actualizando vehículo: " + error.message);
-      }
+      await DataService.saveVehicle(updatedVehicle);
+      setSelectedVehicle(updatedVehicle); // Optimistic
+      await loadData();
   };
 
   // --- Views ---
@@ -375,12 +334,6 @@ const App: React.FC = () => {
                 </span>
             </div>
             <div className="flex items-center space-x-4">
-                {/* Cloud Status Indicator */}
-                <div className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 border ${cloudStatus ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50' : 'bg-amber-500/20 text-amber-400 border-amber-500/50'}`}>
-                    {cloudStatus ? <Cloud size={14}/> : <CloudOff size={14}/>}
-                    <span className="hidden sm:inline">{cloudStatus ? 'Nube Activa' : 'Modo Local'}</span>
-                </div>
-
                 <div className="text-xs text-right hidden sm:block">
                     <p className="font-bold text-white font-['Nunito']">Admin</p>
                     <p className="text-[#37F230]">Sesión Activa</p>
@@ -601,7 +554,7 @@ const App: React.FC = () => {
                     <button 
                         type="button" 
                         onClick={handleWizardBack}
-                        disabled={wizardStep === 1 || isAnalyzing || isSaving}
+                        disabled={wizardStep === 1 || isAnalyzing}
                         className="px-4 py-2 text-slate-500 hover:text-slate-800 disabled:opacity-30 flex items-center"
                     >
                         <ChevronLeft size={16} className="mr-1" /> Atrás
@@ -610,12 +563,10 @@ const App: React.FC = () => {
                     <button 
                         form="wizardForm"
                         type="submit"
-                        disabled={isAnalyzing || isSaving}
+                        disabled={isAnalyzing}
                         className="px-6 py-2 bg-[#05123D] hover:bg-[#030b26] text-white rounded-lg flex items-center shadow-lg disabled:opacity-70 font-bold"
                     >
-                        {isSaving ? (
-                             <><Loader2 className="animate-spin mr-2" size={16} /> Guardando...</>
-                        ) : wizardStep === 4 ? (
+                        {wizardStep === 4 ? (
                             <>Confirmar y Guardar <Check size={16} className="ml-2"/></>
                         ) : (
                             <>Siguiente <ChevronRight size={16} className="ml-2"/></>
@@ -702,12 +653,7 @@ const App: React.FC = () => {
 
                         <div className="pt-4 flex justify-end gap-3">
                             <button type="button" onClick={() => setIsTransactionModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-bold">Cancelar</button>
-                            <button 
-                                type="submit" 
-                                disabled={isSaving}
-                                className={`px-6 py-2 text-white rounded-lg shadow-lg font-bold flex items-center ${transactionType === TransactionType.INCOME ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200' : 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'} ${isSaving ? 'opacity-70' : ''}`}
-                            >
-                                {isSaving && <Loader2 className="animate-spin mr-2" size={16} />}
+                            <button type="submit" className={`px-6 py-2 text-white rounded-lg shadow-lg font-bold ${transactionType === TransactionType.INCOME ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200' : 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'}`}>
                                 Guardar
                             </button>
                         </div>
