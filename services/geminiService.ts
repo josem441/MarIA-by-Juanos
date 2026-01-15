@@ -1,7 +1,17 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { MaintenanceRule, MaintenanceType } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Safety check: Prevent crash if process.env is undefined in some environments
+const apiKey = process.env.API_KEY || '';
+
+// Initialize lazily or safely
+const getAiClient = () => {
+    if (!apiKey) {
+        console.warn("Gemini API Key missing. AI features will be disabled.");
+        return null;
+    }
+    return new GoogleGenAI({ apiKey });
+};
 
 const maintenanceSchema: Schema = {
   type: Type.ARRAY,
@@ -44,6 +54,9 @@ const globalAnalysisSchema: Schema = {
 };
 
 export const analyzeVehicleMaintenance = async (brand: string, model: string, year: number, currentKm: number): Promise<Partial<MaintenanceRule & { description: string }>[]> => {
+  const ai = getAiClient();
+  if (!ai) return [];
+
   try {
     const prompt = `
       Act as an expert automotive mechanic and fleet manager in Colombia.
@@ -85,6 +98,9 @@ export const analyzeVehicleMaintenance = async (brand: string, model: string, ye
 };
 
 export const generateVehicleAdvice = async (vehicle: any, transactions: any[]): Promise<any[]> => {
+    const ai = getAiClient();
+    if (!ai) return [];
+
     try {
         const prompt = `
           Analiza este vehículo para un negocio de transporte en Colombia:
@@ -121,6 +137,9 @@ export const generateVehicleAdvice = async (vehicle: any, transactions: any[]): 
 };
 
 export const analyzeBusinessPerformance = async (vehicles: any[], transactions: any[]): Promise<any> => {
+    const ai = getAiClient();
+    if (!ai) return null;
+
     try {
         const prompt = `
             Actúa como un Consultor de Negocios de Transporte en Colombia. Analiza mi flota de ${vehicles.length} vehículos.

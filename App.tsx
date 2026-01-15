@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { DEFAULT_MAINTENANCE_RULES, MaintenanceType, Transaction, TransactionType, Vehicle, MaintenanceRule } from './types';
+import { DEFAULT_MAINTENANCE_RULES, MaintenanceType, Transaction, TransactionType, Vehicle } from './types';
 import { Dashboard } from './components/Dashboard';
 import { VehicleDetail } from './components/VehicleDetail';
 import { exportGlobalSummary, exportVehicleHistory } from './services/excelService';
 import { analyzeVehicleMaintenance } from './services/geminiService';
 import { DataService } from './services/dataService';
-import { X, Loader2, Sparkles, LogIn, Lock, Check, ChevronRight, ChevronLeft, Car, User, Calendar, Wrench, Key, LogOut } from 'lucide-react';
+import { X, Loader2, Sparkles, LogIn, Key, LogOut, Cloud, CloudOff, Car, User, Calendar, Wrench, ChevronLeft, Check, ChevronRight } from 'lucide-react';
 
-// Simple ID generator if uuid not available
+// Simple ID generator
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
-// --- Initial Data ---
+// --- Initial Data for Seeding ---
 const INITIAL_VEHICLES: Vehicle[] = [
   {
     id: 'renault-logan-001',
@@ -18,7 +18,7 @@ const INITIAL_VEHICLES: Vehicle[] = [
     aka: 'La Coqueta',
     brand: 'Renault',
     model: 'Logan',
-    year: 2020, // Updated to 2020
+    year: 2020,
     color: 'Gris Estrella',
     driverName: 'Carlos Rodríguez',
     driverId: '1.098.765.432',
@@ -75,6 +75,7 @@ const App: React.FC = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
 
   // --- UI State ---
   const [currentView, setCurrentView] = useState<'dashboard' | 'detail'>('dashboard');
@@ -84,7 +85,7 @@ const App: React.FC = () => {
   const [isAddVehicleModalOpen, setIsAddVehicleModalOpen] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [transactionType, setTransactionType] = useState<TransactionType>(TransactionType.INCOME);
-  const [transactionDefaultCategory, setTransactionDefaultCategory] = useState<string>(''); // For pre-filling modal
+  const [transactionDefaultCategory, setTransactionDefaultCategory] = useState<string>(''); 
 
   // Wizard State
   const [wizardStep, setWizardStep] = useState(1);
@@ -98,23 +99,23 @@ const App: React.FC = () => {
   const loadData = async () => {
       setIsLoadingData(true);
       try {
-          const v = await DataService.getVehicles();
-          const t = await DataService.getTransactions();
+          let v = await DataService.getVehicles();
+          let t = await DataService.getTransactions();
           
-          if (v.length === 0 && !localStorage.getItem('vehicles_initialized')) {
-             // Load initial demo data if empty
-             setVehicles(INITIAL_VEHICLES);
-             localStorage.setItem('vehicles_initialized', 'true');
-             // Save initial data to Storage
+          // Seeding if empty
+          if (v.length === 0) {
+             console.log("Inicializando base de datos...");
              for (const vehicle of INITIAL_VEHICLES) {
                  await DataService.saveVehicle(vehicle);
              }
-          } else {
-             setVehicles(v);
+             v = INITIAL_VEHICLES;
           }
+          
+          setVehicles(v);
           setTransactions(t);
       } catch (error) {
-          console.error("Failed to load data", error);
+          console.error("Error loading data", error);
+          setIsOnline(false);
       } finally {
           setIsLoadingData(false);
       }
@@ -126,7 +127,7 @@ const App: React.FC = () => {
     }
   }, [isLoggedIn]);
 
-  // --- Handlers ---
+  // --- Handlers (Optimistic UI) ---
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,10 +155,8 @@ const App: React.FC = () => {
 
   const handleWizardNext = async (e: React.FormEvent) => {
       e.preventDefault();
-      
       const formData = new FormData(e.target as HTMLFormElement);
       const data = Object.fromEntries(formData.entries());
-      
       const updatedData = { ...newVehicleData, ...data };
       setNewVehicleData(updatedData);
 
@@ -181,13 +180,9 @@ const App: React.FC = () => {
       setIsAnalyzing(true);
       try {
           const suggestions = await analyzeVehicleMaintenance(
-              data.brand, 
-              data.model, 
-              parseInt(data.year), 
-              parseInt(data.currentOdometer)
+              data.brand, data.model, parseInt(data.year), parseInt(data.currentOdometer)
           );
           setAiAnalysisResults(suggestions);
-          
           let rules = [...(data.maintenanceRules || DEFAULT_MAINTENANCE_RULES)];
           suggestions.forEach(suggestion => {
               const idx = rules.findIndex(r => r.type === suggestion.type);
@@ -199,19 +194,11 @@ const App: React.FC = () => {
                   warningThresholdDays: 15,
                   description: suggestion.description
               };
-
-              if (idx >= 0) {
-                  rules[idx] = { ...rules[idx], ...newRule } as any;
-              } else {
-                  rules.push(newRule as any);
-              }
+              if (idx >= 0) rules[idx] = { ...rules[idx], ...newRule } as any;
+              else rules.push(newRule as any);
           });
           setNewVehicleData(prev => ({ ...prev, maintenanceRules: rules }));
-      } catch (e) {
-          console.error(e);
-      } finally {
-          setIsAnalyzing(false);
-      }
+      } catch (e) { console.error(e); } finally { setIsAnalyzing(false); }
   };
 
   const finalizeAddVehicle = async (data: any) => {
@@ -235,15 +222,16 @@ const App: React.FC = () => {
         maintenanceRules: data.maintenanceRules
       };
 
-      await DataService.saveVehicle(newVehicle);
-      await loadData(); // Refresh list
+      // OPTIMISTIC UPDATE
+      setVehicles(prev => [...prev, newVehicle]);
       setIsAddVehicleModalOpen(false);
+      
+      // Async Save
+      await DataService.saveVehicle(newVehicle);
   };
 
   const handleAddTransaction = async (formData: any) => {
     if (!selectedVehicle) return;
-
-    // Logic for Odometer: Use form value if present, otherwise fallback to current vehicle odometer
     const formOdometer = formData.odometer ? parseInt(formData.odometer) : null;
     const finalOdometer = formOdometer && !isNaN(formOdometer) ? formOdometer : selectedVehicle.currentOdometer;
 
@@ -258,29 +246,42 @@ const App: React.FC = () => {
       odometerSnapshot: finalOdometer
     };
 
-    await DataService.saveTransaction(newTx);
-    await loadData(); // Refresh list
+    // OPTIMISTIC UPDATE
+    setTransactions(prev => [...prev, newTx]);
     setIsTransactionModalOpen(false);
+
+    // Async Save
+    await DataService.saveTransaction(newTx);
   };
   
   const handleEditTransaction = async (updatedTx: Transaction) => {
+      // OPTIMISTIC UPDATE
+      setTransactions(prev => prev.map(t => t.id === updatedTx.id ? updatedTx : t));
+      
+      // Async Save
       await DataService.saveTransaction(updatedTx);
-      await loadData();
   };
 
   const updateVehicleOdometer = async (newVal: number) => {
     if (selectedVehicle) {
         const updated = { ...selectedVehicle, currentOdometer: newVal, lastOdometerUpdate: new Date().toISOString().split('T')[0] };
+        
+        // OPTIMISTIC UPDATE
+        setSelectedVehicle(updated);
+        setVehicles(prev => prev.map(v => v.id === updated.id ? updated : v));
+        
+        // Async Save
         await DataService.saveVehicle(updated);
-        setSelectedVehicle(updated); // Optimistic update
-        await loadData();
     }
   };
 
   const handleUpdateVehicle = async (updatedVehicle: Vehicle) => {
+      // OPTIMISTIC UPDATE
+      setSelectedVehicle(updatedVehicle);
+      setVehicles(prev => prev.map(v => v.id === updatedVehicle.id ? updatedVehicle : v));
+
+      // Async Save
       await DataService.saveVehicle(updatedVehicle);
-      setSelectedVehicle(updatedVehicle); // Optimistic
-      await loadData();
   };
 
   // --- Views ---
@@ -288,7 +289,8 @@ const App: React.FC = () => {
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#05123D] p-4 font-['Source_Sans_3']">
-        <div className="bg-white/5 backdrop-blur-md p-8 rounded-3xl shadow-2xl w-full max-w-md border border-white/10">
+        {/* Usamos un fondo más oscuro para el form para asegurar contraste si el blur falla */}
+        <div className="bg-slate-900/80 backdrop-blur-md p-8 rounded-3xl shadow-2xl w-full max-w-md border border-white/10">
             <div className="text-center mb-8">
                 <div className="bg-[#37F230] w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-[0_0_20px_rgba(55,242,48,0.3)]">
                     <Sparkles className="text-[#05123D]" size={36} />
@@ -336,6 +338,10 @@ const App: React.FC = () => {
                 </span>
             </div>
             <div className="flex items-center space-x-4">
+                <div className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2 border ${isOnline ? 'bg-white/10 text-[#37F230] border-white/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>
+                     {isOnline ? <Cloud size={12} /> : <CloudOff size={12} />} 
+                     {isOnline ? 'Cloud Sync' : 'Modo Local'}
+                </div>
                 <div className="text-xs text-right hidden sm:block">
                     <p className="font-bold text-white font-['Nunito']">Admin</p>
                     <p className="text-[#37F230]">Sesión Activa</p>
@@ -359,8 +365,11 @@ const App: React.FC = () => {
         
         {/* Loading State Overlay */}
         {isLoadingData && (
-             <div className="fixed inset-0 z-40 bg-[#05123D]/50 flex items-center justify-center backdrop-blur-sm">
-                 <Loader2 className="animate-spin text-[#37F230]" size={48} />
+             <div className="fixed inset-0 z-40 bg-[#05123D]/80 flex items-center justify-center backdrop-blur-sm">
+                 <div className="text-center">
+                     <Loader2 className="animate-spin text-[#37F230] mx-auto mb-4" size={48} />
+                     <p className="text-white font-bold animate-pulse">Sincronizando flota...</p>
+                 </div>
              </div>
         )}
 

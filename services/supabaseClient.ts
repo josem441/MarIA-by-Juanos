@@ -1,11 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 
-// --- CONFIGURACIÓN DE BASE DE DATOS ---
-// 1. Crea un proyecto en https://supabase.com
-// 2. Copia la URL y la ANON KEY de los ajustes del proyecto
-// 3. Pégalos aquí abajo:
+// Usamos acceso seguro a import.meta.env
+const env = (import.meta as any).env || {};
+const SUPABASE_URL = env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = env.VITE_SUPABASE_ANON_KEY;
 
-const SUPABASE_URL = 'https://jmiwdasopgrdjnlqkdwm.supabase.co'; 
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImptaXdkYXNvcGdyZGpubHFrZHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0MjI3MzIsImV4cCI6MjA4Mzk5ODczMn0.iW9rU6tGPiog1eVPEWYBHEH0_GXR8MbPgh55T73quHA';
+// Si no hay credenciales, devolvemos null en lugar de explotar.
+// Esto permite que el DataService detecte que debe usar modo LocalStorage.
+export const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY) 
+    ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
+    : null;
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+if (!supabase) {
+    console.log("ℹ️ Modo Offline/Local activo (Credenciales de Supabase no detectadas)");
+}

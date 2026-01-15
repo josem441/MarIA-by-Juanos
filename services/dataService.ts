@@ -1,68 +1,88 @@
 import { Vehicle, Transaction } from '../types';
-// import { supabase } from './supabaseClient'; // Disabled for local mode
+import { supabase } from './supabaseClient';
 
-// --- CONFIGURACIÓN DE ALMACENAMIENTO ---
-// Establecido en false para usar LocalStorage (Modo Offline/Local)
-const USE_SUPABASE = false;
+const KEY_VEHICLES = 'vehicles_data';
+const KEY_TRANSACTIONS = 'transactions_data';
+const COLLECTION_VEHICLES = 'vehicles';
+const COLLECTION_TRANSACTIONS = 'transactions';
 
-// --- LOCAL STORAGE HELPERS ---
-const getLocalVehicles = (): Vehicle[] => {
+// Helper para guardar en localStorage
+const saveLocal = (key: string, data: any) => {
     try {
-        const saved = localStorage.getItem('vehicles');
-        return saved ? JSON.parse(saved) : [];
+        localStorage.setItem(key, JSON.stringify(data));
     } catch (e) {
-        console.error("Error reading vehicles from local storage", e);
-        return [];
+        console.error("Error saving to localStorage", e);
     }
 };
 
-const getLocalTransactions = (): Transaction[] => {
+// Helper para leer de localStorage
+const getLocal = (key: string): any[] => {
     try {
-        const saved = localStorage.getItem('transactions');
-        return saved ? JSON.parse(saved) : [];
+        const item = localStorage.getItem(key);
+        return item ? JSON.parse(item) : [];
     } catch (e) {
-        console.error("Error reading transactions from local storage", e);
         return [];
     }
 };
-
-// --- DATA SERVICE API ---
 
 export const DataService = {
     
-    // FETCH VEHICLES
+    // FETCH: Intenta Cloud, si falla o no hay config, usa Local
     getVehicles: async (): Promise<Vehicle[]> => {
-        // En modo local, retornamos directamente del localStorage
-        return getLocalVehicles();
+        // 1. Si hay Supabase, intentamos bajar lo más reciente
+        if (supabase) {
+            const { data, error } = await supabase.from(COLLECTION_VEHICLES).select('*');
+            if (!error && data) {
+                // Éxito: Actualizamos el espejo local para la próxima vez
+                saveLocal(KEY_VEHICLES, data);
+                return data as Vehicle[];
+            }
+        }
+        // 2. Fallback: Devolvemos lo que haya localmente
+        return getLocal(KEY_VEHICLES) as Vehicle[];
     },
 
-    // SAVE VEHICLE (Create or Update)
+    // SAVE: Guarda Local (Inmediato) Y luego Cloud (Segundo plano)
     saveVehicle: async (vehicle: Vehicle): Promise<void> => {
-        const current = getLocalVehicles();
-        const index = current.findIndex(v => v.id === vehicle.id);
-        if (index >= 0) {
-            current[index] = vehicle;
-        } else {
-            current.push(vehicle);
+        // 1. Guardado Local Inmediato
+        const vehicles = getLocal(KEY_VEHICLES) as Vehicle[];
+        const index = vehicles.findIndex(v => v.id === vehicle.id);
+        if (index >= 0) vehicles[index] = vehicle;
+        else vehicles.push(vehicle);
+        saveLocal(KEY_VEHICLES, vehicles);
+
+        // 2. Guardado en Nube (Si está disponible)
+        if (supabase) {
+             await supabase.from(COLLECTION_VEHICLES).upsert(vehicle);
         }
-        localStorage.setItem('vehicles', JSON.stringify(current));
     },
 
     // FETCH TRANSACTIONS
     getTransactions: async (): Promise<Transaction[]> => {
-        // En modo local, retornamos directamente del localStorage
-        return getLocalTransactions();
+        if (supabase) {
+            const { data, error } = await supabase.from(COLLECTION_TRANSACTIONS).select('*');
+            if (!error && data) {
+                saveLocal(KEY_TRANSACTIONS, data);
+                return data as Transaction[];
+            }
+        }
+        return getLocal(KEY_TRANSACTIONS) as Transaction[];
     },
 
     // SAVE TRANSACTION
     saveTransaction: async (transaction: Transaction): Promise<void> => {
-        const current = getLocalTransactions();
-        const index = current.findIndex(t => t.id === transaction.id);
-        if (index >= 0) {
-            current[index] = transaction;
-        } else {
-            current.push(transaction);
+        // 1. Local
+        const transactions = getLocal(KEY_TRANSACTIONS) as Transaction[];
+        const index = transactions.findIndex(t => t.id === transaction.id);
+        if (index >= 0) transactions[index] = transaction;
+        else transactions.push(transaction);
+        saveLocal(KEY_TRANSACTIONS, transactions);
+
+        // 2. Cloud
+        if (supabase) {
+            await supabase.from(COLLECTION_TRANSACTIONS).upsert(transaction);
         }
-        localStorage.setItem('transactions', JSON.stringify(current));
     }
 };
+
+export const isCloudEnabled = () => !!supabase;
