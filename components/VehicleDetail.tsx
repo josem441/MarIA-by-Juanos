@@ -5,7 +5,7 @@ import {
   ArrowLeft, Plus, AlertTriangle, CheckCircle, FileDown, Calendar, User, 
   Truck, Phone, Hash, Edit2, Save, ChevronDown, ChevronUp, ChevronRight, History, 
   Shield, FileText, Wrench, Thermometer, Droplet, Gauge, Activity, Zap, X, ExternalLink, MapPin, Sparkles, Brain, Lightbulb, DollarSign, TrendingUp, Cherry,
-  Landmark, Settings, Bug
+  Landmark, Settings, Bug, Loader2
 } from 'lucide-react';
 
 interface VehicleDetailProps {
@@ -66,6 +66,7 @@ export const VehicleDetail: React.FC<VehicleDetailProps> = ({
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   const sortedTransactions = [...transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const incomeTransactions = sortedTransactions.filter(t => t.type === TransactionType.INCOME);
   
   const income = transactions.filter(t => t.type === TransactionType.INCOME).reduce((s, t) => s + t.amount, 0);
   const expense = transactions.filter(t => t.type === TransactionType.EXPENSE).reduce((s, t) => s + t.amount, 0);
@@ -360,8 +361,11 @@ export const VehicleDetail: React.FC<VehicleDetailProps> = ({
          </button>
       </div>
 
+      {/* --- TAB CONTENT --- */}
+
+      {/* 1. MANTENIMIENTO TAB */}
       {activeTab === 'maintenance' && (
-        <div className="space-y-8">
+        <div className="space-y-8 animate-fade-in">
             
             {/* SECTION: DOCUMENTATION CARDS */}
             <div>
@@ -730,6 +734,158 @@ export const VehicleDetail: React.FC<VehicleDetailProps> = ({
             </div>
 
         </div>
+      )}
+
+      {/* 2. HISTORY TAB */}
+      {activeTab === 'history' && (
+          <div className="animate-fade-in space-y-4">
+              <div className="flex justify-between items-center text-white">
+                  <h3 className="text-xl font-bold font-['Nunito']">Historial Completo</h3>
+                  <div className="text-sm text-slate-400">
+                      {sortedTransactions.length} transacciones
+                  </div>
+              </div>
+
+              {sortedTransactions.length > 0 ? (
+                  <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="bg-slate-100 text-slate-500 text-xs uppercase font-bold border-b border-slate-200">
+                                <tr>
+                                    <th className="px-6 py-4">Fecha</th>
+                                    <th className="px-6 py-4">Tipo</th>
+                                    <th className="px-6 py-4">Categoría</th>
+                                    <th className="px-6 py-4">Descripción</th>
+                                    <th className="px-6 py-4 text-right">Monto</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {sortedTransactions.map((t) => (
+                                    <tr key={t.id} className="hover:bg-slate-50 transition-colors">
+                                        <td className="px-6 py-4 font-bold text-[#05123D] whitespace-nowrap">{t.date}</td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${t.type === TransactionType.INCOME ? 'bg-[#37F230]/20 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                                                {t.type === TransactionType.INCOME ? 'Ingreso' : 'Gasto'}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-slate-600 font-medium">{t.category}</td>
+                                        <td className="px-6 py-4 text-slate-500 italic max-w-xs truncate">{t.description || '-'}</td>
+                                        <td className={`px-6 py-4 text-right font-black ${t.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-slate-700'}`}>
+                                            {formatCurrency(t.amount)}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                      </div>
+                  </div>
+              ) : (
+                  <div className="text-center py-12 bg-white/5 rounded-3xl border border-white/10">
+                      <p className="text-slate-400 font-bold">No hay movimientos registrados.</p>
+                  </div>
+              )}
+          </div>
+      )}
+
+      {/* 3. AI TAB */}
+      {activeTab === 'ai' && (
+          <div className="animate-fade-in space-y-6">
+              <div className="bg-indigo-600 rounded-3xl p-8 relative overflow-hidden shadow-2xl">
+                  <div className="absolute top-0 right-0 p-12 bg-white/5 rounded-full blur-3xl -mr-10 -mt-10"></div>
+                  
+                  <div className="relative z-10 text-center">
+                      <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner">
+                          <Brain className="text-white" size={32} />
+                      </div>
+                      <h3 className="text-2xl font-black text-white font-['Nunito'] mb-2">Diagnóstico Inteligente</h3>
+                      <p className="text-indigo-200 max-w-lg mx-auto mb-6 font-medium">
+                          Analizo tus ingresos vs. gastos y el kilometraje actual para darte consejos de rentabilidad y mantenimiento preventivo.
+                      </p>
+                      
+                      <button 
+                          onClick={handleGenerateAdvice}
+                          disabled={isGeneratingAdvice}
+                          className="bg-white text-indigo-700 px-8 py-3 rounded-xl font-black shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center gap-2 mx-auto disabled:opacity-70 disabled:scale-100"
+                      >
+                          {isGeneratingAdvice ? <Loader2 className="animate-spin" /> : <Sparkles size={20} />}
+                          {isGeneratingAdvice ? 'Analizando Flota...' : 'Generar Reporte Ahora'}
+                      </button>
+                  </div>
+              </div>
+
+              {aiAdvice.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {aiAdvice.map((item, idx) => (
+                          <div key={idx} className="bg-white p-6 rounded-2xl shadow-lg border-l-4 border-indigo-500 animate-slide-up" style={{animationDelay: `${idx * 100}ms`}}>
+                              <div className="flex justify-between items-start mb-3">
+                                  <div className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wide">
+                                      {item.category}
+                                  </div>
+                                  <div className={`text-xs font-bold uppercase ${item.priority === 'Alta' ? 'text-rose-500' : 'text-slate-400'}`}>
+                                      Prioridad {item.priority}
+                                  </div>
+                              </div>
+                              <h4 className="text-lg font-black text-[#05123D] mb-2 font-['Nunito']">{item.title}</h4>
+                              <p className="text-slate-600 text-sm leading-relaxed font-medium">
+                                  {item.content}
+                              </p>
+                          </div>
+                      ))}
+                  </div>
+              )}
+          </div>
+      )}
+
+      {/* 4. INCOME TAB */}
+      {activeTab === 'income' && (
+          <div className="animate-fade-in space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-100">
+                      <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Total Recaudado</p>
+                      <h3 className="text-3xl font-black text-emerald-600 font-['Nunito']">{formatCurrency(income)}</h3>
+                  </div>
+                  <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-100">
+                      <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Promedio por Transacción</p>
+                      <h3 className="text-3xl font-black text-[#05123D] font-['Nunito']">
+                          {incomeTransactions.length > 0 ? formatCurrency(income / incomeTransactions.length) : '$0'}
+                      </h3>
+                  </div>
+                  <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-100">
+                      <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">Transacciones</p>
+                      <h3 className="text-3xl font-black text-[#05123D] font-['Nunito']">{incomeTransactions.length}</h3>
+                  </div>
+              </div>
+
+              <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200">
+                  <div className="p-6 border-b border-slate-100 bg-slate-50">
+                      <h3 className="font-bold text-[#05123D] text-lg font-['Nunito']">Detalle de Ingresos</h3>
+                  </div>
+                  {incomeTransactions.length > 0 ? (
+                      <table className="w-full text-sm text-left">
+                        <thead className="bg-white text-slate-500 text-xs uppercase font-bold border-b border-slate-200">
+                            <tr>
+                                <th className="px-6 py-4">Fecha</th>
+                                <th className="px-6 py-4">Concepto</th>
+                                <th className="px-6 py-4 text-right">Monto</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {incomeTransactions.map((t) => (
+                                <tr key={t.id} className="hover:bg-slate-50 transition-colors">
+                                    <td className="px-6 py-4 font-bold text-[#05123D]">{t.date}</td>
+                                    <td className="px-6 py-4 text-slate-600 font-medium">{t.category}</td>
+                                    <td className="px-6 py-4 text-right font-black text-emerald-600">
+                                        {formatCurrency(t.amount)}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                  ) : (
+                      <div className="p-8 text-center text-slate-400">Sin ingresos registrados.</div>
+                  )}
+              </div>
+          </div>
       )}
 
       {/* --- DRIVER MODAL (EDITABLE) --- */}

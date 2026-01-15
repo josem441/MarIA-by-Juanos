@@ -101,20 +101,36 @@ export const generateVehicleAdvice = async (vehicle: any, transactions: any[]): 
     const ai = getAiClient();
     if (!ai) return [];
 
+    // Calculate basic financials for the context
+    const income = transactions.filter(t => t.type === 'INCOME').reduce((s, t) => s + t.amount, 0);
+    const expense = transactions.filter(t => t.type === 'EXPENSE').reduce((s, t) => s + t.amount, 0);
+    const balance = income - expense;
+
     try {
         const prompt = `
-          Analiza este vehículo para un negocio de transporte en Colombia:
-          Vehículo: ${vehicle.brand} ${vehicle.model} ${vehicle.year}.
-          Kilometraje actual: ${vehicle.currentOdometer}.
-          Historial breve: ${transactions.length} transacciones registradas.
+          Contexto: Soy dueño de un negocio de transporte en Colombia. Quiero optimizar la rentabilidad.
           
-          Actúa como un consultor experto de flotas. Dame 4-5 recomendaciones estratégicas Claras.
-          Analiza:
-          1. Desgastes probables por el kilometraje actual para este modelo específico.
-          2. Sugerencias de eficiencia de combustible o cuidado.
-          3. Alertas si el carro ya es muy viejo o tiene mucho kilometraje.
+          Datos del Vehículo:
+          - Modelo: ${vehicle.brand} ${vehicle.model} ${vehicle.year}.
+          - Kilometraje: ${vehicle.currentOdometer} km.
+          - Placa: ${vehicle.plate}.
           
-          Responde en JSON array.
+          Datos Financieros (Históricos):
+          - Total Ingresos: $${income}
+          - Total Gastos Mantenimiento: $${expense}
+          - Balance: $${balance}
+          - Cantidad de registros: ${transactions.length}
+          
+          Tu tarea:
+          Actúa como un analista experto de flotas y mecánico. Dame 4 consejos MUY ESPECÍFICOS basados estrictamente en los datos anteriores.
+          
+          Enfoque obligatorio:
+          1. **Mantenimiento Preventivo**: Basado en el kilometraje actual (${vehicle.currentOdometer}), ¿qué fallo costoso debo prevenir YA para no perder dinero?
+          2. **Rentabilidad**: Analiza si el gasto ($${expense}) es alto comparado con el ingreso. Si hay pocos ingresos registrados, advierte sobre la subutilización.
+          3. **Optimización**: Un consejo técnico para ahorrar combustible o llantas en este modelo específico (${vehicle.model}).
+          
+          No inventes datos. Si no hay suficientes transacciones, recomiéndame empezar a registrar más datos para un mejor análisis.
+          Responde en JSON array con title, category, priority, content.
         `;
 
         const response = await ai.models.generateContent({

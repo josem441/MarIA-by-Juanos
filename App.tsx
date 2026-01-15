@@ -4,7 +4,7 @@ import { Dashboard } from './components/Dashboard';
 import { VehicleDetail } from './components/VehicleDetail';
 import { exportGlobalSummary, exportVehicleHistory } from './services/excelService';
 import { analyzeVehicleMaintenance } from './services/geminiService';
-import { DataService } from './services/dataService';
+import { DataService, isCloudEnabled } from './services/dataService';
 import { X, Loader2, Sparkles, LogIn, Key, LogOut, Cloud, CloudOff, Car, User, Calendar, Wrench, ChevronLeft, Check, ChevronRight } from 'lucide-react';
 
 // Simple ID generator
@@ -13,12 +13,12 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 // --- Initial Data for Seeding ---
 const INITIAL_VEHICLES: Vehicle[] = [
   {
-    id: 'renault-logan-001',
-    plate: 'GFT-982',
+    id: 'renault-logan-ehn009',
+    plate: 'EHN009',
     aka: 'La Coqueta',
     brand: 'Renault',
     model: 'Logan',
-    year: 2020,
+    year: 2019,
     color: 'Gris Estrella',
     driverName: 'Carlos Rodríguez',
     driverId: '1.098.765.432',
@@ -41,12 +41,12 @@ const INITIAL_VEHICLES: Vehicle[] = [
     ]
   },
   {
-    id: 'kia-rio-002',
-    plate: 'WXZ-456',
+    id: 'kia-rio-hxx617',
+    plate: 'HXX617',
     aka: 'Yeimi',
     brand: 'Kia',
-    model: 'Rio Spice',
-    year: 2016,
+    model: 'Rio',
+    year: 2015,
     color: 'Blanco',
     driverName: 'Brayan Stiven López',
     driverId: '1.122.333.444',
@@ -75,7 +75,8 @@ const App: React.FC = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
-  const [isOnline, setIsOnline] = useState(true);
+  // Inicializamos el estado online verificando si Supabase está activo
+  const [isOnline, setIsOnline] = useState(isCloudEnabled());
 
   // --- UI State ---
   const [currentView, setCurrentView] = useState<'dashboard' | 'detail'>('dashboard');
@@ -99,6 +100,9 @@ const App: React.FC = () => {
   const loadData = async () => {
       setIsLoadingData(true);
       try {
+          // Verify cloud status again on load
+          setIsOnline(isCloudEnabled());
+          
           let v = await DataService.getVehicles();
           let t = await DataService.getTransactions();
           
@@ -109,12 +113,30 @@ const App: React.FC = () => {
                  await DataService.saveVehicle(vehicle);
              }
              v = INITIAL_VEHICLES;
+          } else {
+             // HOTFIX: Aseguramos que los vehículos "seed" (La Coqueta y Yeimi) tengan la data correcta
+             // incluso si ya existían en localStorage con datos viejos.
+             v = v.map(veh => {
+                 const seed = INITIAL_VEHICLES.find(i => i.id === veh.id);
+                 if (seed) {
+                     return { 
+                         ...veh, 
+                         plate: seed.plate, 
+                         aka: seed.aka, 
+                         brand: seed.brand, 
+                         model: seed.model, 
+                         year: seed.year 
+                     };
+                 }
+                 return veh;
+             });
           }
           
           setVehicles(v);
           setTransactions(t);
       } catch (error) {
           console.error("Error loading data", error);
+          // Only force offline visual if error occurred, otherwise rely on isCloudEnabled
           setIsOnline(false);
       } finally {
           setIsLoadingData(false);
@@ -131,11 +153,12 @@ const App: React.FC = () => {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === 'admin123') {
+    if (password === 'juanos2026**') {
       setIsLoggedIn(true);
       setLoginError(false);
     } else {
       setLoginError(true);
+      setPassword(''); // Clear password on error
     }
   };
 
@@ -311,7 +334,7 @@ const App: React.FC = () => {
                         placeholder="••••••••"
                     />
                 </div>
-                {loginError && <p className="text-rose-400 text-sm font-bold bg-rose-900/20 p-2 rounded-lg text-center">Contraseña incorrecta (Hint: admin123)</p>}
+                {loginError && <p className="text-rose-400 text-sm font-bold bg-rose-900/20 p-2 rounded-lg text-center">Contraseña incorrecta</p>}
                 <button 
                     type="submit"
                     className="w-full bg-[#37F230] text-[#05123D] py-4 rounded-xl font-black text-lg hover:bg-[#32d62b] hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center shadow-lg"
