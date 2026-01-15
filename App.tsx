@@ -114,12 +114,24 @@ const App: React.FC = () => {
              }
              v = INITIAL_VEHICLES;
           } else {
-             // HOTFIX: Aseguramos que los vehículos "seed" (La Coqueta y Yeimi) tengan la data correcta
-             // incluso si ya existían en localStorage con datos viejos.
+             // HOTFIX AGRESIVO:
+             // Buscamos los vehículos por su sobrenombre (AKA) si el ID no coincide,
+             // y forzamos la actualización de los datos para corregir errores previos.
              v = v.map(veh => {
-                 const seed = INITIAL_VEHICLES.find(i => i.id === veh.id);
+                 let seed = INITIAL_VEHICLES.find(i => i.id === veh.id);
+                 
+                 // Si no coincide por ID, intentamos coincidir por AKA (Sobrenombre)
+                 if (!seed && veh.aka) {
+                     const akaLower = veh.aka.toLowerCase();
+                     if (akaLower.includes('coqueta')) {
+                         seed = INITIAL_VEHICLES.find(i => i.aka === 'La Coqueta');
+                     } else if (akaLower.includes('yeimi')) {
+                         seed = INITIAL_VEHICLES.find(i => i.aka === 'Yeimi');
+                     }
+                 }
+
                  if (seed) {
-                     return { 
+                     const updatedVeh = { 
                          ...veh, 
                          plate: seed.plate, 
                          aka: seed.aka, 
@@ -127,6 +139,9 @@ const App: React.FC = () => {
                          model: seed.model, 
                          year: seed.year 
                      };
+                     // Guardamos el cambio corregido en la base de datos/local
+                     DataService.saveVehicle(updatedVeh);
+                     return updatedVeh;
                  }
                  return veh;
              });
