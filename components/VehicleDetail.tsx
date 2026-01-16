@@ -5,7 +5,7 @@ import {
   ArrowLeft, Plus, AlertTriangle, CheckCircle, FileDown, Calendar, User, 
   Truck, Phone, Hash, Edit2, Save, ChevronDown, ChevronUp, ChevronRight, History, 
   Shield, FileText, Wrench, Thermometer, Droplet, Gauge, Activity, Zap, X, ExternalLink, MapPin, Sparkles, Brain, Lightbulb, DollarSign, TrendingUp, Cherry,
-  Landmark, Settings, Bug, Loader2
+  Landmark, Settings, Bug, Loader2, Trash2
 } from 'lucide-react';
 
 interface VehicleDetailProps {
@@ -16,6 +16,7 @@ interface VehicleDetailProps {
   onUpdateOdometer: (newOdometer: number) => void;
   onUpdateVehicle: (updatedVehicle: Vehicle) => void;
   onEditTransaction: (tx: Transaction) => void;
+  onDeleteTransaction: (id: string) => void;
   onExport: () => void;
 }
 
@@ -35,7 +36,7 @@ const getIconForMaintenance = (type: string | MaintenanceType) => {
 };
 
 export const VehicleDetail: React.FC<VehicleDetailProps> = ({ 
-  vehicle, transactions, onBack, onAddTransaction, onUpdateOdometer, onUpdateVehicle, onEditTransaction, onExport 
+  vehicle, transactions, onBack, onAddTransaction, onUpdateOdometer, onUpdateVehicle, onEditTransaction, onDeleteTransaction, onExport 
 }) => {
   const [activeTab, setActiveTab] = useState<'history' | 'maintenance' | 'ai' | 'income'>('maintenance');
   const [odometerInput, setOdometerInput] = useState(vehicle.currentOdometer.toString());
@@ -761,7 +762,10 @@ export const VehicleDetail: React.FC<VehicleDetailProps> = ({
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {sortedTransactions.map((t) => (
-                                    <tr key={t.id} className="hover:bg-slate-50 transition-colors">
+                                    <tr key={t.id} 
+                                        onClick={() => setEditingTransaction(t)}
+                                        className="hover:bg-slate-50 transition-colors cursor-pointer"
+                                    >
                                         <td className="px-6 py-4 font-bold text-[#05123D] whitespace-nowrap">{t.date}</td>
                                         <td className="px-6 py-4">
                                             <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${t.type === TransactionType.INCOME ? 'bg-[#37F230]/20 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
@@ -1079,6 +1083,19 @@ export const VehicleDetail: React.FC<VehicleDetailProps> = ({
                           <input name="odometer" type="number" defaultValue={editingTransaction.odometerSnapshot} className="w-full border p-3 rounded-xl focus:border-[#37F230] outline-none font-bold text-[#05123D]" />
                       </div>
                       <div className="flex gap-2 pt-2">
+                           <button 
+                              type="button" 
+                              onClick={() => {
+                                  if(confirm('¿Estás seguro de eliminar este registro permanentemente?')) {
+                                      onDeleteTransaction(editingTransaction.id);
+                                      setEditingTransaction(null);
+                                  }
+                              }} 
+                              className="py-3 px-4 bg-rose-100 hover:bg-rose-200 text-rose-700 rounded-xl font-bold transition-colors"
+                              title="Eliminar permanentemente"
+                          >
+                              <Trash2 size={20} />
+                          </button>
                           <button type="button" onClick={() => setEditingTransaction(null)} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 rounded-xl text-slate-600 font-bold">Cancelar</button>
                           <button type="submit" className="flex-1 py-3 bg-[#37F230] hover:bg-[#32d62b] text-[#05123D] rounded-xl font-black">Guardar</button>
                       </div>

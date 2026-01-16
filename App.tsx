@@ -422,6 +422,14 @@ const App: React.FC = () => {
       await DataService.saveTransaction(updatedTx);
   };
 
+  const handleDeleteTransaction = async (id: string) => {
+      // OPTIMISTIC UPDATE
+      setTransactions(prev => prev.filter(t => t.id !== id));
+      
+      // Async Save
+      await DataService.deleteTransaction(id);
+  };
+
   const updateVehicleOdometer = async (newVal: number) => {
     if (selectedVehicle) {
         const updated = { ...selectedVehicle, currentOdometer: newVal, lastOdometerUpdate: new Date().toISOString().split('T')[0] };
@@ -576,6 +584,7 @@ const App: React.FC = () => {
                 onUpdateOdometer={updateVehicleOdometer}
                 onUpdateVehicle={handleUpdateVehicle}
                 onEditTransaction={handleEditTransaction}
+                onDeleteTransaction={handleDeleteTransaction}
                 onExport={() => exportVehicleHistory(selectedVehicle, transactions)}
             />
         )}

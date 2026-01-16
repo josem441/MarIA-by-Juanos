@@ -82,6 +82,19 @@ export const DataService = {
         if (supabase) {
             await supabase.from(COLLECTION_TRANSACTIONS).upsert(transaction);
         }
+    },
+
+    // DELETE TRANSACTION
+    deleteTransaction: async (id: string): Promise<void> => {
+        // 1. Local
+        let transactions = getLocal(KEY_TRANSACTIONS) as Transaction[];
+        transactions = transactions.filter(t => t.id !== id);
+        saveLocal(KEY_TRANSACTIONS, transactions);
+
+        // 2. Cloud
+        if (supabase) {
+            await supabase.from(COLLECTION_TRANSACTIONS).delete().eq('id', id);
+        }
     }
 };
 
