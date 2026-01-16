@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { DEFAULT_MAINTENANCE_RULES, MaintenanceType, Transaction, TransactionType, Vehicle } from './types';
 import { Dashboard } from './components/Dashboard';
 import { VehicleDetail } from './components/VehicleDetail';
-import { exportGlobalSummary, exportVehicleHistory } from './services/excelService';
+import { exportGlobalSummary, exportVehicleHistory, exportMasterData } from './services/excelService';
 import { analyzeVehicleMaintenance } from './services/geminiService';
 import { DataService, isCloudEnabled } from './services/dataService';
-import { X, Loader2, Sparkles, LogIn, Key, LogOut, Cloud, CloudOff, Car, User, Calendar, Wrench, ChevronLeft, Check, ChevronRight, Download } from 'lucide-react';
+import { X, Loader2, Sparkles, LogIn, Key, LogOut, Cloud, CloudOff, Car, User, Calendar, Wrench, ChevronLeft, Check, ChevronRight, Download, FileSpreadsheet } from 'lucide-react';
 
 // Simple ID generator
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -184,21 +184,122 @@ const App: React.FC = () => {
       setSelectedVehicle(null);
   };
 
-  // --- NEW FEATURE: BACKUP DOWNLOAD ---
-  const handleDownloadBackup = () => {
-      const backupData = {
-          timestamp: new Date().toISOString(),
-          app: "MarIA by Juanos",
-          version: "1.0",
-          vehicles: vehicles,
-          transactions: transactions
-      };
+  // --- EXCEL REPORT ---
+  const handleDownloadExcel = () => {
+      exportMasterData(vehicles, transactions);
+  };
 
-      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+  // --- NEW FEATURE: HTML REPORT BACKUP ---
+  const handleDownloadBackup = () => {
+      const today = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
+      const formatCurrency = (v: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v);
+
+      let contentHtml = `
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+          <meta charset="UTF-8">
+          <title>Reporte Flota Juanos - ${today}</title>
+          <script src="https://cdn.tailwindcss.com"></script>
+          <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+          <style>
+              body { font-family: 'Source Sans 3', sans-serif; background-color: #05123D; color: white; }
+              h1, h2, h3 { font-family: 'Nunito', sans-serif; }
+          </style>
+      </head>
+      <body class="p-8 max-w-7xl mx-auto">
+          <div class="mb-8 text-center border-b border-white/10 pb-6">
+              <h1 class="text-4xl font-black mb-2">MarIA <span class="text-[#37F230]">by Juanos</span></h1>
+              <p class="text-xl text-slate-300">Reporte Completo de Negocio</p>
+              <p class="text-sm text-slate-500 mt-2">Generado el: ${today}</p>
+          </div>
+
+          <!-- GLOBAL SUMMARY -->
+          <div class="grid grid-cols-3 gap-4 mb-12">
+               <div class="bg-white p-6 rounded-2xl text-slate-800">
+                   <p class="text-sm text-slate-500 font-bold uppercase">Ingresos Totales</p>
+                   <h2 class="text-3xl font-black text-[#05123D]">${formatCurrency(transactions.filter(t => t.type === 'INCOME').reduce((s,t) => s + t.amount, 0))}</h2>
+               </div>
+               <div class="bg-white p-6 rounded-2xl text-slate-800">
+                   <p class="text-sm text-slate-500 font-bold uppercase">Egresos Totales</p>
+                   <h2 class="text-3xl font-black text-[#05123D]">${formatCurrency(transactions.filter(t => t.type === 'EXPENSE').reduce((s,t) => s + t.amount, 0))}</h2>
+               </div>
+               <div class="bg-white p-6 rounded-2xl text-slate-800">
+                   <p class="text-sm text-slate-500 font-bold uppercase">Balance Neto</p>
+                   <h2 class="text-3xl font-black ${transactions.reduce((s, t) => s + (t.type === 'INCOME' ? t.amount : -t.amount), 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+                       ${formatCurrency(transactions.reduce((s, t) => s + (t.type === 'INCOME' ? t.amount : -t.amount), 0))}
+                   </h2>
+               </div>
+          </div>
+
+          <!-- VEHICLES DETAIL -->
+          <h2 class="text-2xl font-black mb-6 border-l-4 border-[#37F230] pl-4">Detalle por Vehículo</h2>
+      `;
+
+      vehicles.forEach(v => {
+          const vTrans = transactions.filter(t => t.vehicleId === v.id).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          const vIncome = vTrans.filter(t => t.type === 'INCOME').reduce((s, t) => s + t.amount, 0);
+          const vExpense = vTrans.filter(t => t.type === 'EXPENSE').reduce((s, t) => s + t.amount, 0);
+
+          contentHtml += `
+          <div class="bg-white rounded-3xl p-8 mb-8 text-slate-800 shadow-xl">
+              <div class="flex justify-between items-start mb-6 border-b border-slate-100 pb-4">
+                  <div>
+                      <h3 class="text-3xl font-black text-[#05123D]">${v.plate}</h3>
+                      <p class="text-lg text-slate-500 font-bold">${v.aka || v.model}</p>
+                      <p class="text-sm text-slate-400">${v.brand} ${v.year} • ${v.currentOdometer.toLocaleString()} km</p>
+                  </div>
+                  <div class="text-right">
+                      <p class="text-xs font-bold text-slate-400 uppercase">Balance Vehículo</p>
+                      <p class="text-2xl font-black ${vIncome - vExpense >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+                          ${formatCurrency(vIncome - vExpense)}
+                      </p>
+                  </div>
+              </div>
+
+              <div class="overflow-x-auto">
+                  <table class="w-full text-sm text-left">
+                      <thead class="bg-slate-100 text-slate-600 uppercase font-bold">
+                          <tr>
+                              <th class="px-4 py-3 rounded-l-lg">Fecha</th>
+                              <th class="px-4 py-3">Tipo</th>
+                              <th class="px-4 py-3">Categoría</th>
+                              <th class="px-4 py-3">Descripción</th>
+                              <th class="px-4 py-3 text-right rounded-r-lg">Monto</th>
+                          </tr>
+                      </thead>
+                      <tbody>
+                          ${vTrans.map(t => `
+                              <tr class="border-b border-slate-50 hover:bg-slate-50">
+                                  <td class="px-4 py-3 font-medium">${t.date}</td>
+                                  <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs font-bold ${t.type === 'INCOME' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">${t.type === 'INCOME' ? 'INGRESO' : 'GASTO'}</span></td>
+                                  <td class="px-4 py-3 text-slate-600">${t.category}</td>
+                                  <td class="px-4 py-3 text-slate-500 italic">${t.description || '-'}</td>
+                                  <td class="px-4 py-3 text-right font-bold text-slate-800">${formatCurrency(t.amount)}</td>
+                              </tr>
+                          `).join('')}
+                          ${vTrans.length === 0 ? '<tr><td colspan="5" class="px-4 py-8 text-center text-slate-400 italic">No hay registros para este vehículo</td></tr>' : ''}
+                      </tbody>
+                  </table>
+              </div>
+          </div>
+          `;
+      });
+
+      contentHtml += `
+          <div class="text-center text-slate-500 text-sm mt-12 pb-8">
+              <p>Generado automáticamente por MarIA Fleet Manager</p>
+              <p>&copy; ${new Date().getFullYear()} Juanos Transport</p>
+          </div>
+      </body>
+      </html>
+      `;
+
+      const blob = new Blob([contentHtml], { type: 'text/html' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `Backup_Flota_Juanos_${new Date().toISOString().split('T')[0]}.json`;
+      link.download = `Reporte_Visual_Flota_${new Date().toISOString().split('T')[0]}.html`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -397,14 +498,24 @@ const App: React.FC = () => {
                 </span>
             </div>
             <div className="flex items-center space-x-4">
-                {/* Backup Button */}
+                {/* Backup Button Visual */}
                 <button 
                    onClick={handleDownloadBackup}
                    className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30 hover:text-white transition-all"
-                   title="Descargar copia de seguridad"
+                   title="Descargar copia de seguridad visual"
                 >
                     <Download size={14} /> 
-                    Backup
+                    Backup Visual
+                </button>
+
+                 {/* Backup Button Excel */}
+                 <button 
+                   onClick={handleDownloadExcel}
+                   className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 hover:text-white transition-all"
+                   title="Descargar reporte completo Excel"
+                >
+                    <FileSpreadsheet size={14} /> 
+                    Reporte Excel
                 </button>
 
                 <div className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2 border ${isOnline ? 'bg-white/10 text-[#37F230] border-white/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>
