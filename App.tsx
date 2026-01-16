@@ -5,7 +5,7 @@ import { VehicleDetail } from './components/VehicleDetail';
 import { exportGlobalSummary, exportVehicleHistory } from './services/excelService';
 import { analyzeVehicleMaintenance } from './services/geminiService';
 import { DataService, isCloudEnabled } from './services/dataService';
-import { X, Loader2, Sparkles, LogIn, Key, LogOut, Cloud, CloudOff, Car, User, Calendar, Wrench, ChevronLeft, Check, ChevronRight } from 'lucide-react';
+import { X, Loader2, Sparkles, LogIn, Key, LogOut, Cloud, CloudOff, Car, User, Calendar, Wrench, ChevronLeft, Check, ChevronRight, Download } from 'lucide-react';
 
 // Simple ID generator
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -182,6 +182,27 @@ const App: React.FC = () => {
       setPassword('');
       setCurrentView('dashboard');
       setSelectedVehicle(null);
+  };
+
+  // --- NEW FEATURE: BACKUP DOWNLOAD ---
+  const handleDownloadBackup = () => {
+      const backupData = {
+          timestamp: new Date().toISOString(),
+          app: "MarIA by Juanos",
+          version: "1.0",
+          vehicles: vehicles,
+          transactions: transactions
+      };
+
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Backup_Flota_Juanos_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
   };
 
   const openAddVehicleModal = () => {
@@ -376,6 +397,16 @@ const App: React.FC = () => {
                 </span>
             </div>
             <div className="flex items-center space-x-4">
+                {/* Backup Button */}
+                <button 
+                   onClick={handleDownloadBackup}
+                   className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30 hover:text-white transition-all"
+                   title="Descargar copia de seguridad"
+                >
+                    <Download size={14} /> 
+                    Backup
+                </button>
+
                 <div className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2 border ${isOnline ? 'bg-white/10 text-[#37F230] border-white/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>
                      {isOnline ? <Cloud size={12} /> : <CloudOff size={12} />} 
                      {isOnline ? 'Cloud Sync' : 'Modo Local'}

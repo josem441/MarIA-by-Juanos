@@ -867,6 +867,7 @@ export const VehicleDetail: React.FC<VehicleDetailProps> = ({
                                 <th className="px-6 py-4">Fecha</th>
                                 <th className="px-6 py-4">Concepto</th>
                                 <th className="px-6 py-4 text-right">Monto</th>
+                                <th className="px-6 py-4 w-10"></th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -876,6 +877,14 @@ export const VehicleDetail: React.FC<VehicleDetailProps> = ({
                                     <td className="px-6 py-4 text-slate-600 font-medium">{t.category}</td>
                                     <td className="px-6 py-4 text-right font-black text-emerald-600">
                                         {formatCurrency(t.amount)}
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                        <button 
+                                            onClick={() => setEditingTransaction(t)}
+                                            className="text-slate-400 hover:text-[#05123D]"
+                                        >
+                                            <Edit2 size={14}/>
+                                        </button>
                                     </td>
                                 </tr>
                             ))}
