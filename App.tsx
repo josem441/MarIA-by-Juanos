@@ -460,8 +460,8 @@ const App: React.FC = () => {
         {/* Usamos un fondo más oscuro para el form para asegurar contraste si el blur falla */}
         <div className="bg-slate-900/80 backdrop-blur-md p-8 rounded-3xl shadow-2xl w-full max-w-md border border-white/10">
             <div className="text-center mb-8">
-                <div className="bg-[#37F230] w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-[0_0_20px_rgba(55,242,48,0.3)]">
-                    <Sparkles className="text-[#05123D]" size={36} />
+                <div className="w-40 h-40 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-[0_0_20px_rgba(55,242,48,0.3)] overflow-hidden border-4 border-[#37F230] bg-white">
+                    <img src="https://raw.githubusercontent.com/josem441/IMGs/refs/heads/main/logo.jpg" alt="Logo" className="w-full h-full object-cover" />
                 </div>
                 <h1 className="text-3xl font-black text-white font-['Nunito']">
                     MarIA<span className="text-[#37F230]"> by Juanos</span>
@@ -498,8 +498,8 @@ const App: React.FC = () => {
       <header className="bg-[#05123D] border-b border-white/10 sticky top-0 z-10 backdrop-blur-xl bg-opacity-90">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
             <div className="flex items-center space-x-3 cursor-pointer group" onClick={() => { setCurrentView('dashboard'); setSelectedVehicle(null); }}>
-                <div className="bg-[#37F230] p-2 rounded-xl group-hover:scale-110 transition-transform shadow-[0_0_15px_rgba(55,242,48,0.2)]">
-                    <Sparkles size={24} className="text-[#05123D]" /> 
+                <div className="w-10 h-10 rounded-xl overflow-hidden border-2 border-[#37F230] group-hover:scale-110 transition-transform shadow-[0_0_15px_rgba(55,242,48,0.2)] bg-white">
+                    <img src="https://raw.githubusercontent.com/josem441/IMGs/refs/heads/main/logo.jpg" alt="Logo" className="w-full h-full object-cover" />
                 </div>
                 <span className="text-2xl font-black text-white tracking-tight font-['Nunito']">
                     MarIA<span className="text-[#37F230]"> by Juanos</span>
